@@ -1,0 +1,11 @@
+{
+  "name": "cvir-operations-wallboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:tizen": "node scripts/build-tizen.mjs",
+    "check": "node scripts/check.mjs"
+  }
+}

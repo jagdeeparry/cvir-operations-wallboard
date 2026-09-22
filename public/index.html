@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="theme-color" content="#07121c" />
+    <meta name="cvir-api-base" content="" />
+    <title>CVIR Operations Wallboard</title>
+    <meta name="description" content="Live five-minute CVIR incident and team operations wallboard." />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307111c'/%3E%3Cpath d='M14 42V22h8v20zm14 0V14h8v28zm14 0V28h8v14z' fill='%233be4bf'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell" aria-live="polite">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div>
+            <p class="eyebrow">Unified Customer Board</p>
+            <h1>CVIR operations</h1>
+          </div>
+        </div>
+        <div class="status-cluster">
+          <div class="mode-pill" id="modePill"><span class="status-dot"></span><span id="modeText">Connecting</span></div>
+          <div class="clock-block">
+            <strong id="clock">--:--</strong>
+            <span id="date">Loading date</span>
+          </div>
+          <button class="refresh-button" id="refreshButton" type="button" aria-label="Refresh dashboard now">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/></svg>
+            <span id="countdown">5:00</span>
+          </button>
+        </div>
+      </header>
+
+      <section class="kpi-grid" aria-label="Incident overview">
+        <article class="card kpi-card kpi-open">
+          <div class="card-label"><span>Open incidents</span><span class="live-tag">LIVE</span></div>
+          <div class="kpi-row"><strong class="kpi-value" id="openIncidents">—</strong><span class="kpi-unit">unresolved</span></div>
+          <div class="sparkline" id="incidentSpark" aria-label="Open incident trend"></div>
+        </article>
+
+        <article class="card sev-card" id="sevCard">
+          <div class="card-label"><span>Recent SEV-1</span><span id="sevWindow">last 30 min</span></div>
+          <div class="sev-body">
+            <div class="beacon-wrap"><span class="beacon-ring"></span><span class="beacon" id="sevBeacon"></span></div>
+            <div><strong class="kpi-value" id="sevCount">—</strong><p id="sevMessage">Checking incidents</p></div>
+          </div>
+        </article>
+
+        <article class="card mttr-card">
+          <div class="card-label"><span>Weekly MTTR</span><span>Mon → now</span></div>
+          <div class="mttr-body">
+            <div class="gauge" id="mttrGauge"><div><strong id="mttrValue">—</strong><span>hours</span></div></div>
+            <div class="mttr-meta"><p><span id="resolvedCount">—</span> resolved</p><p>Median <span id="medianMttr">—</span></p></div>
+          </div>
+        </article>
+
+        <article class="card workload-card">
+          <div class="card-label"><span>Team open load</span><span>all work types</span></div>
+          <div class="kpi-row"><strong class="kpi-value" id="teamOpenTotal">—</strong><span class="kpi-unit">tickets</span></div>
+          <div class="mini-split"><span><i class="legend incident"></i><b id="teamIncidentTotal">—</b> incidents</span><span><i class="legend other"></i><b id="teamOtherTotal">—</b> other</span></div>
+        </article>
+      </section>
+
+      <section class="main-grid">
+        <article class="card team-card">
+          <div class="section-heading">
+            <div><p class="eyebrow">Today’s handoff</p><h2>Team movement</h2></div>
+            <div class="legend-row"><span><i class="legend review"></i>In Review now</span><span><i class="legend closed"></i>Closed today</span></div>
+          </div>
+          <div class="team-table" id="teamTable" role="table" aria-label="Team throughput">
+            <div class="team-header" role="row"><span role="columnheader">Owner</span><span role="columnheader">In review</span><span role="columnheader">Closed</span><span role="columnheader">Open</span></div>
+            <div class="loading-lines"><span></span><span></span><span></span><span></span></div>
+          </div>
+        </article>
+
+        <article class="card queue-card">
+          <div class="section-heading">
+            <div><p class="eyebrow">Assigned workload</p><h2>Open ticket queue</h2></div>
+            <div class="page-indicator"><span id="queueRange">—</span><div class="pager-dots" id="pagerDots"></div></div>
+          </div>
+          <div class="ticket-list" id="ticketList"><div class="empty-state">Loading current assignments…</div></div>
+        </article>
+      </section>
+
+      <footer>
+        <div><span class="footer-label">DATA WINDOW</span><span id="dataWindow">Asia/Kolkata · Monday 00:00 → now</span></div>
+        <div class="footer-center" id="warningText">Read-only dashboard</div>
+        <div><span class="footer-label">LAST SYNC</span><span id="lastSync">Waiting…</span></div>
+      </footer>
+    </main>
+    <div class="toast" id="toast" role="status"></div>
+    <script src="/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,14 @@
+import { readFile, mkdir, writeFile, cp, rm } from 'node:fs/promises';
+import path from 'node:path';
+const root = path.resolve(import.meta.dirname, '..');
+const dist = path.join(root, 'dist');
+await rm(dist, { recursive: true, force: true });
+await mkdir(path.join(dist, 'server'), { recursive: true });
+const html = await readFile(path.join(root, 'public/index.html'), 'utf8');
+const css = await readFile(path.join(root, 'public/styles.css'), 'utf8');
+const js = await readFile(path.join(root, 'public/app.js'), 'utf8');
+const worker = await readFile(path.join(root, 'src/worker.js'), 'utf8');
+const inline = html.replace('<link rel="stylesheet" href="/styles.css" />', '<style>' + css + '</style>').replace('<script src="/app.js"></script>', '<script>' + js + '</script>');
+await writeFile(path.join(dist, 'server/index.js'), 'const __INDEX_HTML__ = ' + JSON.stringify(inline) + ';\n' + worker);
+await cp(path.join(root, '.openai'), path.join(dist, '.openai'), { recursive: true });
+console.log('Built Cloudflare Worker at dist/server/index.js');

@@ -136,6 +136,12 @@ const PREVIEW = {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === '/styles.css') {
+      return new Response(__STYLES_CSS__, { headers: { 'content-type': 'text/css; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff' } });
+    }
+    if (url.pathname === '/app.js') {
+      return new Response(__APP_JS__, { headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff' } });
+    }
     if (url.pathname === '/api/dashboard') {
       if (!env.JIRA_BASE_URL || !env.JIRA_EMAIL || !env.JIRA_API_TOKEN) return json({ ...PREVIEW, generatedAt: new Date().toISOString() });
       try { return json(await liveDashboard(env)); }

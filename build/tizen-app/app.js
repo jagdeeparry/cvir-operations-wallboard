@@ -19,6 +19,13 @@
   }
   function toast(message) { var el = $('toast'); el.textContent = message; el.classList.add('show'); setTimeout(function () { el.classList.remove('show'); }, 2600); }
   function drawSpark(values) { $('incidentSpark').innerHTML = values.map(function (v) { return '<i style="height:' + Math.max(16, Math.min(100, v)) + '%"></i>'; }).join(''); }
+  function renderMttrLane(number, entry, target) {
+    var hours = entry && entry.hours;
+    $('mttrSev' + number).textContent = hours == null ? '—' : formatDuration(hours);
+    var ratio = hours == null ? 0 : hours / target;
+    $('mttrBar' + number).style.width = Math.min(100, Math.max(hours == null ? 0 : 5, ratio * 100)) + '%';
+    $('mttrLane' + number).classList.toggle('breach', hours != null && hours > target);
+  }
   function renderTeam(team) {
     var header = '<div class="team-header" role="row"><span role="columnheader">Owner</span><span role="columnheader">In review</span><span role="columnheader">Closed</span><span role="columnheader">Open</span></div>';
     $('teamTable').innerHTML = header + team.map(function (member) {
@@ -47,10 +54,10 @@
     $('sevWindow').textContent = 'last ' + data.sev1WindowMinutes + ' min';
     $('sevCard').classList.toggle('alert', data.recentSev1.length > 0);
     $('sevMessage').textContent = data.recentSev1.length ? (data.recentSev1[0].key + ' · ' + data.recentSev1[0].summary) : 'No new critical incidents';
-    $('mttrValue').textContent = data.mttr.hours == null ? '—' : data.mttr.hours.toFixed(1);
-    $('resolvedCount').textContent = data.mttr.resolvedCount;
-    $('medianMttr').textContent = formatDuration(data.mttr.medianHours);
-    $('mttrGauge').style.setProperty('--progress', Math.min(100, Math.max(4, (data.mttr.hours || 0) / 24 * 100)) + '%');
+    renderMttrLane(1, data.mttr.bySeverity.sev1, 2);
+    renderMttrLane(2, data.mttr.bySeverity.sev2, 24);
+    renderMttrLane(3, data.mttr.bySeverity.sev3, 72);
+    $('mttrResolvedLabel').textContent = data.mttr.resolvedCount + ' resolved · Mon → now';
     $('teamOpenTotal').textContent = data.teamOpen.total;
     $('teamIncidentTotal').textContent = data.teamOpen.incidents;
     $('teamOtherTotal').textContent = data.teamOpen.other;
@@ -74,7 +81,7 @@
   window.CVIR_PREVIEW_DATA = {
     mode: 'demo', generatedAt: new Date().toISOString(), sev1WindowMinutes: 30, openIncidentCount: 72,
     openIncidentTrend: [43,55,51,60,58,64,61,72,66,70,63,68], recentSev1: [{key:'CVIR-10576',summary:'DGVCL · LS data not pushing to MDM'}],
-    mttr: { hours: 8.7, medianHours: 6.2, resolvedCount: 14 }, teamOpen: { total: 31, incidents: 19, other: 12 },
+    mttr: { resolvedCount: 14, bySeverity: { sev1: {hours:1.7,count:3,target:2}, sev2: {hours:11.8,count:7,target:24}, sev3: {hours:39.2,count:4,target:72} } }, teamOpen: { total: 31, incidents: 19, other: 12 },
     team: [
       {name:'Darshita',inReview:3,closedToday:2,open:5},{name:'Heena',inReview:4,closedToday:3,open:4},{name:'Yashy',inReview:2,closedToday:1,open:3},{name:'Shreya',inReview:3,closedToday:2,open:4},
       {name:'Parveen',inReview:1,closedToday:2,open:2},{name:'Anshul',inReview:2,closedToday:1,open:4},{name:'Nikhil',inReview:1,closedToday:3,open:3},{name:'Rahul Sethi',inReview:4,closedToday:2,open:6}
@@ -87,7 +94,11 @@
       {key:'CVIR-10557',summary:'Reconcile failed ingestion batch for MDM',type:'Bug',assignee:'Darshita',status:'In Review',updated:'1h ago'},
       {key:'CVIR-10549',summary:'RCA evidence and timeline review',type:'Incident',assignee:'Anshul',status:'RCA in Progress',updated:'2h ago'},
       {key:'CVIR-10542',summary:'Utility dashboard count mismatch',type:'Task',assignee:'Parveen',status:'In Progress',updated:'3h ago'},
-      {key:'CVIR-10531',summary:'Retry queue depth above threshold',type:'Incident',assignee:'Yashy',status:'In Progress L3',updated:'4h ago'}
+      {key:'CVIR-10531',summary:'Retry queue depth above threshold',type:'Incident',assignee:'Yashy',status:'In Progress L3',updated:'4h ago'},
+      {key:'CVIR-10526',summary:'Communication module health check required',type:'Task',assignee:'Rahul Sethi',status:'In Progress',updated:'5h ago'},
+      {key:'CVIR-10518',summary:'Review delayed meter event processing',type:'Incident',assignee:'Heena',status:'In Review',updated:'5h ago'},
+      {key:'CVIR-10512',summary:'Daily reconciliation variance investigation',type:'Bug',assignee:'Nikhil',status:'In Progress',updated:'6h ago'},
+      {key:'CVIR-10504',summary:'Complete incident closure evidence',type:'Incident',assignee:'Shreya',status:'RCA in Progress',updated:'7h ago'}
     ],
     windowLabel: 'Asia/Kolkata · Monday 00:00 → now', warnings: ['Preview mode · add Jira secrets for live data']
   };

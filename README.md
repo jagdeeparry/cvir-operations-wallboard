@@ -30,7 +30,7 @@ Without these values the dashboard intentionally shows clearly labeled preview d
 - **Recent SEV-1:** unresolved incidents created during the configured recent window whose `INC Severity` is `Sev-1`. Priority `Highest` is used only if the custom field cannot be found.
 - **In Review:** tickets currently in the exact `In Review` status for each selected assignee.
 - **Closed today:** tickets in a Done status category whose resolution date is today, using the Jira site timezone.
-- **Weekly MTTR:** average wall-clock hours from `created` to `resolutiondate` for incidents resolved since Monday 00:00 Asia/Kolkata. Median and sample size are also shown.
+- **Weekly MTTR:** average wall-clock hours from `created` to `resolutiondate` for incidents resolved since Monday 00:00 Asia/Kolkata, broken out by the `INC Severity` field. The dashboard compares SEV-1 against 2 hours, SEV-2 against 24 hours, and SEV-3 against 72 hours; a lane turns red when its weekly average breaches the target.
 - **Open ticket queue:** every unresolved CVIR work item assigned to the selected members, not only Incidents.
 
 ## Local validation

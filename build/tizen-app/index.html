@@ -49,10 +49,11 @@
         </article>
 
         <article class="card mttr-card">
-          <div class="card-label"><span>Weekly MTTR</span><span>Mon → now</span></div>
-          <div class="mttr-body">
-            <div class="gauge" id="mttrGauge"><div><strong id="mttrValue">—</strong><span>hours</span></div></div>
-            <div class="mttr-meta"><p><span id="resolvedCount">—</span> resolved</p><p>Median <span id="medianMttr">—</span></p></div>
+          <div class="card-label"><span>Weekly MTTR by severity</span><span id="mttrResolvedLabel">Mon → now</span></div>
+          <div class="mttr-lanes">
+            <div class="mttr-lane" id="mttrLane1"><span class="severity-badge sev1">SEV-1</span><strong id="mttrSev1">—</strong><span class="mttr-target">target 2h</span><i><b id="mttrBar1"></b></i></div>
+            <div class="mttr-lane" id="mttrLane2"><span class="severity-badge sev2">SEV-2</span><strong id="mttrSev2">—</strong><span class="mttr-target">target 24h</span><i><b id="mttrBar2"></b></i></div>
+            <div class="mttr-lane" id="mttrLane3"><span class="severity-badge sev3">SEV-3</span><strong id="mttrSev3">—</strong><span class="mttr-target">target 72h</span><i><b id="mttrBar3"></b></i></div>
           </div>
         </article>
 

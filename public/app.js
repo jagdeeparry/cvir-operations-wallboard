@@ -28,9 +28,9 @@
   }
   function renderTeam(team) {
     function metric(value) { return value == null ? '—' : value; }
-    var header = '<div class="team-header" role="row"><span role="columnheader">Owner</span><span role="columnheader">In review</span><span role="columnheader">Closed</span><span role="columnheader">Open</span></div>';
+    var header = '<div class="team-header" role="row"><span role="columnheader">Owner</span><span role="columnheader">Assigned open</span><span role="columnheader">Closed / In Review today</span></div>';
     $('teamTable').innerHTML = header + team.map(function (member) {
-      return '<div class="team-row" role="row"><span class="person" role="cell"><i class="avatar">' + esc(initials(member.name)) + '</i><span class="person-name">' + esc(member.name) + '</span></span><span class="metric-cell review" role="cell">' + metric(member.inReview) + '</span><span class="metric-cell closed" role="cell">' + metric(member.closedToday) + '</span><span class="metric-cell open" role="cell">' + metric(member.open) + '</span></div>';
+      return '<div class="team-row" role="row"><span class="person" role="cell"><i class="avatar">' + esc(initials(member.name)) + '</i><span class="person-name">' + esc(member.name) + '</span></span><span class="metric-cell open" role="cell">' + metric(member.assignedOpen) + '</span><span class="metric-cell closed" role="cell">' + metric(member.completedOrReviewedToday) + '</span></div>';
     }).join('');
   }
   function renderQueue() {
@@ -83,7 +83,7 @@
   window.CVIR_UNAVAILABLE_DATA = {
     mode: 'error', generatedAt: new Date().toISOString(), sev1WindowMinutes: 30, openIncidentCount: null,
     openIncidentTrend: [], recentSev1: [], mttr: { resolvedCount: null, bySeverity: { sev1: {hours:null}, sev2: {hours:null}, sev3: {hours:null} } },
-    teamOpen: { total: null, incidents: null, other: null }, team: ['Darshita','Heena','Yashy','Shreya','Parveen','Anshul','Nikhil','Rahul Sethi'].map(function (name) { return {name:name,inReview:null,closedToday:null,open:null}; }),
+    teamOpen: { total: null, incidents: null, other: null }, team: ['Darshita','Heena','Yashy','Shreya','Parveen','Anshul','Nikhil','Rahul Sethi'].map(function (name) { return {name:name,assignedOpen:null,completedOrReviewedToday:null}; }),
     openTickets: [], windowLabel: 'Live CVIR data unavailable', warnings: ['Dashboard service unavailable · figures are hidden']
   };
   $('refreshButton').addEventListener('click', function () { fetchData(true); });

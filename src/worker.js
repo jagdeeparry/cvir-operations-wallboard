@@ -85,10 +85,10 @@ async function liveDashboard(env) {
   const monday = mondayISO();
   const sevMinutes = Number(env.SEV1_RECENT_MINUTES || DEFAULT_SEV1_WINDOW);
   const base = 'project = CVIR';
-  const [openIncidents, recentIncidents, inReview, doneToday, rcaToday, openTeam, resolvedWeek, rcaWeek] = await Promise.all([
+  const [openIncidents, recentIncidents, inReviewToday, doneToday, rcaToday, openTeam, resolvedWeek, rcaWeek] = await Promise.all([
     search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status != "RCA in Progress"', ['key'], 5000),
     search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status != "RCA in Progress" AND created >= -' + sevMinutes + 'm ORDER BY created DESC', ['summary','created', sevField || 'priority'], 100),
-    search(env, base + ' AND status = "In Review" AND assignee in (' + accountList + ')', ['assignee'], 500),
+    search(env, base + ' AND status CHANGED TO "In Review" AFTER startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
     search(env, base + ' AND statusCategory = Done AND resolutiondate >= startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
     search(env, base + ' AND issuetype = Incident AND status = "RCA in Progress" AND status CHANGED TO "RCA in Progress" AFTER startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
     search(env, base + ' AND statusCategory != Done AND (issuetype != Incident OR status != "RCA in Progress") AND assignee in (' + accountList + ') ORDER BY priority DESC, updated DESC', ['summary','issuetype','assignee','status','updated'], 500),
@@ -98,9 +98,13 @@ async function liveDashboard(env) {
   const severityOf = (issue) => sevField ? fieldValue(issue.fields[sevField]) : '';
   const sev1 = recentIncidents.issues.filter((i) => /sev[- ]?1/i.test(severityOf(i))).map((i) => ({ key: i.key, summary: i.fields.summary }));
   const uniqueIssues = (groups) => [...new Map(groups.flat().map((issue) => [issue.key, issue])).values()];
-  const closedToday = uniqueIssues([doneToday.issues, rcaToday.issues]);
+  const completedOrReviewedToday = uniqueIssues([doneToday.issues, rcaToday.issues, inReviewToday.issues]);
   const byAccount = (issues, id) => issues.filter((i) => i.fields.assignee && i.fields.assignee.accountId === id).length;
-  const team = users.map((u) => ({ name: u.name, inReview: u.accountId ? byAccount(inReview.issues, u.accountId) : 0, closedToday: u.accountId ? byAccount(closedToday, u.accountId) : 0, open: u.accountId ? byAccount(openTeam.issues, u.accountId) : 0 }));
+  const team = users.map((u) => ({
+    name: u.name,
+    assignedOpen: u.accountId ? byAccount(openTeam.issues, u.accountId) : 0,
+    completedOrReviewedToday: u.accountId ? byAccount(completedOrReviewedToday, u.accountId) : 0
+  }));
   const completedThisWeek = uniqueIssues([resolvedWeek.issues, rcaWeek.issues]);
   const resolutionHours = (issue) => {
     const ttrSeconds = ttrField ? Number(fieldValue(issue.fields[ttrField])) : NaN;
@@ -130,7 +134,7 @@ function unavailableDashboard(mode, warning) {
     openIncidentCount: null, openIncidentTrend: [], recentSev1: [],
     mttr: { resolvedCount: null, bySeverity: { sev1: { hours: null, target: 2 }, sev2: { hours: null, target: 24 }, sev3: { hours: null, target: 72 } } },
     teamOpen: { total: null, incidents: null, other: null },
-    team: TEAM_NAMES.map((name) => ({ name, inReview: null, closedToday: null, open: null })),
+    team: TEAM_NAMES.map((name) => ({ name, assignedOpen: null, completedOrReviewedToday: null })),
     openTickets: [], windowLabel: 'Live CVIR data unavailable', warnings: [warning]
   };
 }

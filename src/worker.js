@@ -25,7 +25,7 @@ async function fields(env) {
   if (fieldCache && fieldCache.expires > Date.now()) return fieldCache.value;
   const all = await jira(env, '/rest/api/3/field');
   const map = {};
-  all.forEach((f) => { map[String(f.name).toLowerCase()] = f.id; });
+  all.forEach((f) => { map[String(f.name).trim().toLowerCase()] = f.id; });
   fieldCache = { value: map, expires: Date.now() + 60 * 60 * 1000 };
   return map;
 }
@@ -76,6 +76,7 @@ function ago(iso) { const mins = Math.max(0, Math.round((Date.now() - new Date(i
 async function liveDashboard(env) {
   const fieldMap = await fields(env);
   const sevField = fieldMap['inc severity'];
+  const ttrField = fieldMap['time to resolution'];
   const users = await resolveUsers(env);
   const validUsers = users.filter((u) => u.accountId);
   const unresolved = users.filter((u) => !u.accountId).map((u) => u.name);
@@ -84,53 +85,62 @@ async function liveDashboard(env) {
   const monday = mondayISO();
   const sevMinutes = Number(env.SEV1_RECENT_MINUTES || DEFAULT_SEV1_WINDOW);
   const base = 'project = CVIR';
-  const [openIncidents, recentIncidents, inReview, closedToday, openTeam, resolvedWeek] = await Promise.all([
-    search(env, base + ' AND issuetype = Incident AND statusCategory != Done', ['key'], 5000),
-    search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND created >= -' + sevMinutes + 'm ORDER BY created DESC', ['summary','created', sevField || 'priority'], 100),
+  const [openIncidents, recentIncidents, inReview, doneToday, rcaToday, openTeam, resolvedWeek, rcaWeek] = await Promise.all([
+    search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status != "RCA in Progress"', ['key'], 5000),
+    search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status != "RCA in Progress" AND created >= -' + sevMinutes + 'm ORDER BY created DESC', ['summary','created', sevField || 'priority'], 100),
     search(env, base + ' AND status = "In Review" AND assignee in (' + accountList + ')', ['assignee'], 500),
     search(env, base + ' AND statusCategory = Done AND resolutiondate >= startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
-    search(env, base + ' AND statusCategory != Done AND assignee in (' + accountList + ') ORDER BY priority DESC, updated DESC', ['summary','issuetype','assignee','status','updated'], 500),
-    search(env, base + ' AND issuetype = Incident AND resolutiondate >= "' + monday + '" AND resolutiondate IS NOT EMPTY', ['created','resolutiondate', sevField || 'priority'], 500)
+    search(env, base + ' AND issuetype = Incident AND status = "RCA in Progress" AND status CHANGED TO "RCA in Progress" AFTER startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
+    search(env, base + ' AND statusCategory != Done AND (issuetype != Incident OR status != "RCA in Progress") AND assignee in (' + accountList + ') ORDER BY priority DESC, updated DESC', ['summary','issuetype','assignee','status','updated'], 500),
+    search(env, base + ' AND issuetype = Incident AND statusCategory = Done AND resolutiondate >= "' + monday + '" AND resolutiondate IS NOT EMPTY', ['created','resolutiondate', sevField || 'priority', ttrField || 'updated'], 500),
+    search(env, base + ' AND issuetype = Incident AND status = "RCA in Progress" AND status CHANGED TO "RCA in Progress" AFTER "' + monday + '"', ['created','resolutiondate', sevField || 'priority', ttrField || 'updated'], 500)
   ]);
   const severityOf = (issue) => sevField ? fieldValue(issue.fields[sevField]) : '';
   const sev1 = recentIncidents.issues.filter((i) => /sev[- ]?1/i.test(severityOf(i))).map((i) => ({ key: i.key, summary: i.fields.summary }));
+  const uniqueIssues = (groups) => [...new Map(groups.flat().map((issue) => [issue.key, issue])).values()];
+  const closedToday = uniqueIssues([doneToday.issues, rcaToday.issues]);
   const byAccount = (issues, id) => issues.filter((i) => i.fields.assignee && i.fields.assignee.accountId === id).length;
-  const team = users.map((u) => ({ name: u.name, inReview: u.accountId ? byAccount(inReview.issues, u.accountId) : 0, closedToday: u.accountId ? byAccount(closedToday.issues, u.accountId) : 0, open: u.accountId ? byAccount(openTeam.issues, u.accountId) : 0 }));
-  const resolvedEntries = resolvedWeek.issues.map((i) => ({ hours: hoursBetween(i.fields.created, i.fields.resolutiondate), severity: severityOf(i) })).filter((x) => Number.isFinite(x.hours) && x.hours >= 0);
+  const team = users.map((u) => ({ name: u.name, inReview: u.accountId ? byAccount(inReview.issues, u.accountId) : 0, closedToday: u.accountId ? byAccount(closedToday, u.accountId) : 0, open: u.accountId ? byAccount(openTeam.issues, u.accountId) : 0 }));
+  const completedThisWeek = uniqueIssues([resolvedWeek.issues, rcaWeek.issues]);
+  const resolutionHours = (issue) => {
+    const ttrSeconds = ttrField ? Number(fieldValue(issue.fields[ttrField])) : NaN;
+    if (Number.isFinite(ttrSeconds) && ttrSeconds >= 0) return ttrSeconds / 3600;
+    return issue.fields.resolutiondate ? hoursBetween(issue.fields.created, issue.fields.resolutiondate) : null;
+  };
+  const resolvedEntries = completedThisWeek.map((i) => ({ hours: resolutionHours(i), severity: severityOf(i) })).filter((x) => Number.isFinite(x.hours) && x.hours >= 0);
   const times = resolvedEntries.map((x) => x.hours);
   const severityTimes = (level) => resolvedEntries.filter((x) => new RegExp('sev[- ]?' + level, 'i').test(x.severity)).map((x) => x.hours);
   const mttrEntry = (values, target) => ({ hours: values.length ? values.reduce((a,b) => a+b, 0) / values.length : null, medianHours: median(values), count: values.length, target });
   const issueRows = openTeam.issues.map((i) => ({ key: i.key, summary: i.fields.summary, type: i.fields.issuetype && i.fields.issuetype.name, assignee: i.fields.assignee && i.fields.assignee.displayName, status: i.fields.status && i.fields.status.name, updated: ago(i.fields.updated) }));
   const incidents = issueRows.filter((i) => String(i.type).toLowerCase() === 'incident').length;
   const sev1Times = severityTimes(1), sev2Times = severityTimes(2), sev3Times = severityTimes(3);
+  const excludedMttr = completedThisWeek.length - resolvedEntries.length;
   return {
     mode: 'live', generatedAt: new Date().toISOString(), sev1WindowMinutes: sevMinutes, openIncidentCount: openIncidents.total,
     openIncidentTrend: [42,48,46,54,51,59,57,64,61,68,65,Math.min(92, 40 + openIncidents.total / 2)], recentSev1: sev1,
     mttr: { resolvedCount: times.length, bySeverity: { sev1: mttrEntry(sev1Times, 2), sev2: mttrEntry(sev2Times, 24), sev3: mttrEntry(sev3Times, 72) } }, teamOpen: { total: issueRows.length, incidents, other: issueRows.length - incidents },
     team, openTickets: issueRows, windowLabel: 'Asia/Kolkata · Monday ' + monday + ' 00:00 → now',
-    warnings: [...(sevField ? [] : ['Jira field INC Severity could not be resolved']), ...(unresolved.length ? ['Unresolved Jira member mapping: ' + unresolved.join(', ')] : [])]
+    warnings: [...(sevField ? [] : ['Jira field INC Severity could not be resolved']), ...(ttrField ? [] : ['Jira field Time to Resolution could not be resolved']), ...(excludedMttr ? [excludedMttr + ' completed incidents excluded from MTTR because resolution time is missing'] : []), ...(unresolved.length ? ['Unresolved Jira member mapping: ' + unresolved.join(', ')] : [])]
   };
 }
 
 const PREVIEW = {
-  mode: 'demo', sev1WindowMinutes: 30, openIncidentCount: 72, openIncidentTrend: [43,55,51,60,58,64,61,72,66,70,63,68],
-  recentSev1: [{key:'CVIR-10576',summary:'DGVCL · LS data not pushing to MDM'}], mttr:{resolvedCount:14,bySeverity:{sev1:{hours:1.7,count:3,target:2},sev2:{hours:11.8,count:7,target:24},sev3:{hours:39.2,count:4,target:72}}}, teamOpen:{total:31,incidents:19,other:12},
-  team:[{name:'Darshita',inReview:3,closedToday:2,open:5},{name:'Heena',inReview:4,closedToday:3,open:4},{name:'Yashy',inReview:2,closedToday:1,open:3},{name:'Shreya',inReview:3,closedToday:2,open:4},{name:'Parveen',inReview:1,closedToday:2,open:2},{name:'Anshul',inReview:2,closedToday:1,open:4},{name:'Nikhil',inReview:1,closedToday:3,open:3},{name:'Rahul Sethi',inReview:4,closedToday:2,open:6}],
+  mode: 'demo', sev1WindowMinutes: 30, openIncidentCount: 70, openIncidentTrend: [43,55,51,60,58,64,61,72,66,70,63,68],
+  recentSev1: [{key:'CVIR-10576',summary:'DGVCL · LS data not pushing to MDM'}], mttr:{resolvedCount:14,bySeverity:{sev1:{hours:1.7,count:3,target:2},sev2:{hours:11.8,count:7,target:24},sev3:{hours:39.2,count:4,target:72}}}, teamOpen:{total:29,incidents:17,other:12},
+  team:[{name:'Darshita',inReview:3,closedToday:2,open:5},{name:'Heena',inReview:4,closedToday:3,open:4},{name:'Yashy',inReview:2,closedToday:1,open:3},{name:'Shreya',inReview:3,closedToday:3,open:3},{name:'Parveen',inReview:1,closedToday:2,open:2},{name:'Anshul',inReview:2,closedToday:2,open:3},{name:'Nikhil',inReview:1,closedToday:3,open:3},{name:'Rahul Sethi',inReview:4,closedToday:2,open:6}],
   openTickets:[
     {key:'CVIR-10576',summary:'DGVCL · LS data not pushing to MDM',type:'Incident',assignee:'Rahul Sethi',status:'In Progress L1',updated:'8 min ago'},
     {key:'CVIR-10571',summary:'Data sync latency observed for production meters',type:'Incident',assignee:'Heena',status:'In Review',updated:'17 min ago'},
     {key:'CVIR-10568',summary:'Validation required for missing daily profile',type:'Task',assignee:'Shreya',status:'In Progress',updated:'29 min ago'},
     {key:'CVIR-10563',summary:'Investigate delayed command acknowledgement',type:'Incident',assignee:'Nikhil',status:'In Progress L2',updated:'42 min ago'},
     {key:'CVIR-10557',summary:'Reconcile failed ingestion batch for MDM',type:'Bug',assignee:'Darshita',status:'In Review',updated:'1h ago'},
-    {key:'CVIR-10549',summary:'RCA evidence and timeline review',type:'Incident',assignee:'Anshul',status:'RCA in Progress',updated:'2h ago'},
     {key:'CVIR-10542',summary:'Utility dashboard count mismatch',type:'Task',assignee:'Parveen',status:'In Progress',updated:'3h ago'},
     {key:'CVIR-10531',summary:'Retry queue depth above threshold',type:'Incident',assignee:'Yashy',status:'In Progress L3',updated:'4h ago'},
     {key:'CVIR-10526',summary:'Communication module health check required',type:'Task',assignee:'Rahul Sethi',status:'In Progress',updated:'5h ago'},
     {key:'CVIR-10518',summary:'Review delayed meter event processing',type:'Incident',assignee:'Heena',status:'In Review',updated:'5h ago'},
-    {key:'CVIR-10512',summary:'Daily reconciliation variance investigation',type:'Bug',assignee:'Nikhil',status:'In Progress',updated:'6h ago'},
-    {key:'CVIR-10504',summary:'Complete incident closure evidence',type:'Incident',assignee:'Shreya',status:'RCA in Progress',updated:'7h ago'}
+    {key:'CVIR-10512',summary:'Daily reconciliation variance investigation',type:'Bug',assignee:'Nikhil',status:'In Progress',updated:'6h ago'}
   ],
-  windowLabel:'Asia/Kolkata · Monday 00:00 → now', warnings:['Preview mode · Jira credentials are not configured']
+  windowLabel:'Asia/Kolkata · Monday 00:00 → now', warnings:['Preview data · RCA in Progress counted closed']
 };
 
 export default {

@@ -44,6 +44,8 @@ h1, h2, p { margin-top: 0; } h1 { margin-bottom: 0; font-size: clamp(1.35rem, 1.
 .mode-pill { display: flex; align-items: center; gap: 9px; border: 1px solid var(--border); padding: 9px 13px; border-radius: 999px; font-size: .78rem; color: var(--muted); background: rgba(8, 22, 32, .6); }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 12px var(--amber); }
 .mode-pill.live .status-dot { background: var(--mint); box-shadow: 0 0 12px var(--mint); }
+.mode-pill.error { color: #ffd1a0; border-color: rgba(255,187,85,.38); background: rgba(82,48,13,.34); }
+.mode-pill.error .status-dot { background: var(--amber); box-shadow: 0 0 12px var(--amber); }
 .clock-block { text-align: right; min-width: 112px; }.clock-block strong { font-size: 1.45rem; letter-spacing: .06em; }.clock-block span { display: block; color: var(--muted); font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; }
 .refresh-button { color: var(--text); display: flex; align-items: center; gap: 8px; min-width: 86px; justify-content: center; padding: 11px 14px; border: 1px solid var(--border); border-radius: 12px; background: rgba(17, 37, 51, .82); cursor: pointer; transition: transform .2s, border-color .2s; }
 .refresh-button:hover, .refresh-button:focus-visible { border-color: var(--mint); outline: 2px solid rgba(66,229,191,.2); transform: translateY(-1px); }.refresh-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }.refresh-button.loading svg { animation: spin 1s linear infinite; }

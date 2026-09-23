@@ -124,24 +124,16 @@ async function liveDashboard(env) {
   };
 }
 
-const PREVIEW = {
-  mode: 'demo', sev1WindowMinutes: 30, openIncidentCount: 70, openIncidentTrend: [43,55,51,60,58,64,61,72,66,70,63,68],
-  recentSev1: [{key:'CVIR-10576',summary:'DGVCL · LS data not pushing to MDM'}], mttr:{resolvedCount:14,bySeverity:{sev1:{hours:1.7,count:3,target:2},sev2:{hours:11.8,count:7,target:24},sev3:{hours:39.2,count:4,target:72}}}, teamOpen:{total:29,incidents:17,other:12},
-  team:[{name:'Darshita',inReview:3,closedToday:2,open:5},{name:'Heena',inReview:4,closedToday:3,open:4},{name:'Yashy',inReview:2,closedToday:1,open:3},{name:'Shreya',inReview:3,closedToday:3,open:3},{name:'Parveen',inReview:1,closedToday:2,open:2},{name:'Anshul',inReview:2,closedToday:2,open:3},{name:'Nikhil',inReview:1,closedToday:3,open:3},{name:'Rahul Sethi',inReview:4,closedToday:2,open:6}],
-  openTickets:[
-    {key:'CVIR-10576',summary:'DGVCL · LS data not pushing to MDM',type:'Incident',assignee:'Rahul Sethi',status:'In Progress L1',updated:'8 min ago'},
-    {key:'CVIR-10571',summary:'Data sync latency observed for production meters',type:'Incident',assignee:'Heena',status:'In Review',updated:'17 min ago'},
-    {key:'CVIR-10568',summary:'Validation required for missing daily profile',type:'Task',assignee:'Shreya',status:'In Progress',updated:'29 min ago'},
-    {key:'CVIR-10563',summary:'Investigate delayed command acknowledgement',type:'Incident',assignee:'Nikhil',status:'In Progress L2',updated:'42 min ago'},
-    {key:'CVIR-10557',summary:'Reconcile failed ingestion batch for MDM',type:'Bug',assignee:'Darshita',status:'In Review',updated:'1h ago'},
-    {key:'CVIR-10542',summary:'Utility dashboard count mismatch',type:'Task',assignee:'Parveen',status:'In Progress',updated:'3h ago'},
-    {key:'CVIR-10531',summary:'Retry queue depth above threshold',type:'Incident',assignee:'Yashy',status:'In Progress L3',updated:'4h ago'},
-    {key:'CVIR-10526',summary:'Communication module health check required',type:'Task',assignee:'Rahul Sethi',status:'In Progress',updated:'5h ago'},
-    {key:'CVIR-10518',summary:'Review delayed meter event processing',type:'Incident',assignee:'Heena',status:'In Review',updated:'5h ago'},
-    {key:'CVIR-10512',summary:'Daily reconciliation variance investigation',type:'Bug',assignee:'Nikhil',status:'In Progress',updated:'6h ago'}
-  ],
-  windowLabel:'Asia/Kolkata · Monday 00:00 → now', warnings:['Preview data · RCA in Progress counted closed']
-};
+function unavailableDashboard(mode, warning) {
+  return {
+    mode, generatedAt: new Date().toISOString(), sev1WindowMinutes: 30,
+    openIncidentCount: null, openIncidentTrend: [], recentSev1: [],
+    mttr: { resolvedCount: null, bySeverity: { sev1: { hours: null, target: 2 }, sev2: { hours: null, target: 24 }, sev3: { hours: null, target: 72 } } },
+    teamOpen: { total: null, incidents: null, other: null },
+    team: TEAM_NAMES.map((name) => ({ name, inReview: null, closedToday: null, open: null })),
+    openTickets: [], windowLabel: 'Live CVIR data unavailable', warnings: [warning]
+  };
+}
 
 export default {
   async fetch(request, env) {
@@ -153,9 +145,9 @@ export default {
       return new Response(__APP_JS__, { headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff' } });
     }
     if (url.pathname === '/api/dashboard') {
-      if (!env.JIRA_BASE_URL || !env.JIRA_EMAIL || !env.JIRA_API_TOKEN) return json({ ...PREVIEW, generatedAt: new Date().toISOString() });
+      if (!env.JIRA_BASE_URL || !env.JIRA_EMAIL || !env.JIRA_API_TOKEN) return json(unavailableDashboard('unconfigured', 'Jira is not connected · live CVIR figures are hidden'));
       try { return json(await liveDashboard(env)); }
-      catch (error) { return json({ ...PREVIEW, generatedAt: new Date().toISOString(), warnings: ['Live Jira refresh failed · showing preview data', String(error.message || error)] }); }
+      catch (error) { return json({ ...unavailableDashboard('error', 'Live Jira refresh failed · figures are hidden'), diagnostic: String(error.message || error) }, 502); }
     }
     if (url.pathname === '/health') return json({ ok: true, jiraConfigured: Boolean(env.JIRA_BASE_URL && env.JIRA_EMAIL && env.JIRA_API_TOKEN) });
     return new Response(__INDEX_HTML__, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache', 'content-security-policy': "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'", 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff' } });

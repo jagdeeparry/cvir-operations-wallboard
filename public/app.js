@@ -27,14 +27,15 @@
     $('mttrLane' + number).classList.toggle('breach', hours != null && hours > target);
   }
   function renderTeam(team) {
+    function metric(value) { return value == null ? '—' : value; }
     var header = '<div class="team-header" role="row"><span role="columnheader">Owner</span><span role="columnheader">In review</span><span role="columnheader">Closed</span><span role="columnheader">Open</span></div>';
     $('teamTable').innerHTML = header + team.map(function (member) {
-      return '<div class="team-row" role="row"><span class="person" role="cell"><i class="avatar">' + esc(initials(member.name)) + '</i><span class="person-name">' + esc(member.name) + '</span></span><span class="metric-cell review" role="cell">' + member.inReview + '</span><span class="metric-cell closed" role="cell">' + member.closedToday + '</span><span class="metric-cell open" role="cell">' + member.open + '</span></div>';
+      return '<div class="team-row" role="row"><span class="person" role="cell"><i class="avatar">' + esc(initials(member.name)) + '</i><span class="person-name">' + esc(member.name) + '</span></span><span class="metric-cell review" role="cell">' + metric(member.inReview) + '</span><span class="metric-cell closed" role="cell">' + metric(member.closedToday) + '</span><span class="metric-cell open" role="cell">' + metric(member.open) + '</span></div>';
     }).join('');
   }
   function renderQueue() {
     var tickets = state.tickets;
-    if (!tickets.length) { $('ticketList').innerHTML = '<div class="empty-state">No open tickets assigned to the selected team.</div>'; $('queueRange').textContent = '0 tickets'; $('pagerDots').innerHTML = ''; return; }
+    if (!tickets.length) { var message = state.data && state.data.mode !== 'live' ? 'Live Jira connection required to load assignments.' : 'No open tickets assigned to the selected team.'; $('ticketList').innerHTML = '<div class="empty-state">' + message + '</div>'; $('queueRange').textContent = state.data && state.data.mode !== 'live' ? 'Unavailable' : '0 tickets'; $('pagerDots').innerHTML = ''; return; }
     var pages = Math.ceil(tickets.length / PAGE_SIZE);
     if (state.page >= pages) state.page = 0;
     var start = state.page * PAGE_SIZE;
@@ -48,25 +49,26 @@
   }
   function render(data) {
     state.data = data; state.tickets = data.openTickets || []; state.page = 0;
-    $('openIncidents').textContent = data.openIncidentCount;
-    drawSpark(data.openIncidentTrend || [46,52,49,58,54,61,57,64,60,69,65,68]);
-    $('sevCount').textContent = data.recentSev1.length;
+    $('openIncidents').textContent = data.openIncidentCount == null ? '—' : data.openIncidentCount;
+    drawSpark(data.openIncidentTrend || []);
+    $('sevCount').textContent = data.mode === 'live' ? data.recentSev1.length : '—';
     $('sevWindow').textContent = 'last ' + data.sev1WindowMinutes + ' min';
     $('sevCard').classList.toggle('alert', data.recentSev1.length > 0);
-    $('sevMessage').textContent = data.recentSev1.length ? (data.recentSev1[0].key + ' · ' + data.recentSev1[0].summary) : 'No new critical incidents';
+    $('sevMessage').textContent = data.mode !== 'live' ? 'Waiting for live Jira data' : (data.recentSev1.length ? (data.recentSev1[0].key + ' · ' + data.recentSev1[0].summary) : 'No new critical incidents');
     renderMttrLane(1, data.mttr.bySeverity.sev1, 2);
     renderMttrLane(2, data.mttr.bySeverity.sev2, 24);
     renderMttrLane(3, data.mttr.bySeverity.sev3, 72);
-    $('mttrResolvedLabel').textContent = data.mttr.resolvedCount + ' resolved · Mon → now';
-    $('teamOpenTotal').textContent = data.teamOpen.total;
-    $('teamIncidentTotal').textContent = data.teamOpen.incidents;
-    $('teamOtherTotal').textContent = data.teamOpen.other;
+    $('mttrResolvedLabel').textContent = data.mttr.resolvedCount == null ? 'Live data required' : data.mttr.resolvedCount + ' resolved · Mon → now';
+    $('teamOpenTotal').textContent = data.teamOpen.total == null ? '—' : data.teamOpen.total;
+    $('teamIncidentTotal').textContent = data.teamOpen.incidents == null ? '—' : data.teamOpen.incidents;
+    $('teamOtherTotal').textContent = data.teamOpen.other == null ? '—' : data.teamOpen.other;
     renderTeam(data.team);
     renderQueue();
     $('lastSync').textContent = new Intl.DateTimeFormat('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' }).format(new Date(data.generatedAt));
     $('dataWindow').textContent = data.windowLabel;
     $('modePill').classList.toggle('live', data.mode === 'live');
-    $('modeText').textContent = data.mode === 'live' ? 'Jira live' : 'Preview data';
+    $('modePill').classList.toggle('error', data.mode !== 'live');
+    $('modeText').textContent = data.mode === 'live' ? 'Jira live' : (data.mode === 'unconfigured' ? 'Jira not connected' : 'Jira unavailable');
     $('warningText').textContent = data.warnings && data.warnings.length ? data.warnings[0] : 'RCA in Progress counted closed · read-only';
   }
   function fetchData(manual) {
@@ -74,31 +76,15 @@
     state.busy = true; $('refreshButton').classList.add('loading');
     fetch(apiBase + '/api/dashboard', { cache: 'no-store', headers: { 'Accept': 'application/json' } })
       .then(function (r) { if (!r.ok) throw new Error('Dashboard service returned ' + r.status); return r.json(); })
-      .then(function (data) { render(data); state.countdown = REFRESH_SECONDS; if (manual) toast(data.mode === 'live' ? 'Live Jira data refreshed' : 'Preview data refreshed'); })
-      .catch(function () { render(window.CVIR_PREVIEW_DATA); state.countdown = REFRESH_SECONDS; if (manual) toast('Using bundled preview data'); })
+      .then(function (data) { render(data); state.countdown = REFRESH_SECONDS; if (manual) toast(data.mode === 'live' ? 'Live Jira data refreshed' : 'Live Jira data unavailable'); })
+      .catch(function () { render(window.CVIR_UNAVAILABLE_DATA); state.countdown = REFRESH_SECONDS; if (manual) toast('Dashboard service unavailable'); })
       .then(function () { state.busy = false; $('refreshButton').classList.remove('loading'); });
   }
-  window.CVIR_PREVIEW_DATA = {
-    mode: 'demo', generatedAt: new Date().toISOString(), sev1WindowMinutes: 30, openIncidentCount: 70,
-    openIncidentTrend: [43,55,51,60,58,64,61,72,66,70,63,68], recentSev1: [{key:'CVIR-10576',summary:'DGVCL · LS data not pushing to MDM'}],
-    mttr: { resolvedCount: 14, bySeverity: { sev1: {hours:1.7,count:3,target:2}, sev2: {hours:11.8,count:7,target:24}, sev3: {hours:39.2,count:4,target:72} } }, teamOpen: { total: 29, incidents: 17, other: 12 },
-    team: [
-      {name:'Darshita',inReview:3,closedToday:2,open:5},{name:'Heena',inReview:4,closedToday:3,open:4},{name:'Yashy',inReview:2,closedToday:1,open:3},{name:'Shreya',inReview:3,closedToday:3,open:3},
-      {name:'Parveen',inReview:1,closedToday:2,open:2},{name:'Anshul',inReview:2,closedToday:2,open:3},{name:'Nikhil',inReview:1,closedToday:3,open:3},{name:'Rahul Sethi',inReview:4,closedToday:2,open:6}
-    ],
-    openTickets: [
-      {key:'CVIR-10576',summary:'DGVCL · LS data not pushing to MDM',type:'Incident',assignee:'Rahul Sethi',status:'In Progress L1',updated:'8 min ago'},
-      {key:'CVIR-10571',summary:'Data sync latency observed for production meters',type:'Incident',assignee:'Heena',status:'In Review',updated:'17 min ago'},
-      {key:'CVIR-10568',summary:'Validation required for missing daily profile',type:'Task',assignee:'Shreya',status:'In Progress',updated:'29 min ago'},
-      {key:'CVIR-10563',summary:'Investigate delayed command acknowledgement',type:'Incident',assignee:'Nikhil',status:'In Progress L2',updated:'42 min ago'},
-      {key:'CVIR-10557',summary:'Reconcile failed ingestion batch for MDM',type:'Bug',assignee:'Darshita',status:'In Review',updated:'1h ago'},
-      {key:'CVIR-10542',summary:'Utility dashboard count mismatch',type:'Task',assignee:'Parveen',status:'In Progress',updated:'3h ago'},
-      {key:'CVIR-10531',summary:'Retry queue depth above threshold',type:'Incident',assignee:'Yashy',status:'In Progress L3',updated:'4h ago'},
-      {key:'CVIR-10526',summary:'Communication module health check required',type:'Task',assignee:'Rahul Sethi',status:'In Progress',updated:'5h ago'},
-      {key:'CVIR-10518',summary:'Review delayed meter event processing',type:'Incident',assignee:'Heena',status:'In Review',updated:'5h ago'},
-      {key:'CVIR-10512',summary:'Daily reconciliation variance investigation',type:'Bug',assignee:'Nikhil',status:'In Progress',updated:'6h ago'}
-    ],
-    windowLabel: 'Asia/Kolkata · Monday 00:00 → now', warnings: ['Preview data · RCA in Progress counted closed']
+  window.CVIR_UNAVAILABLE_DATA = {
+    mode: 'error', generatedAt: new Date().toISOString(), sev1WindowMinutes: 30, openIncidentCount: null,
+    openIncidentTrend: [], recentSev1: [], mttr: { resolvedCount: null, bySeverity: { sev1: {hours:null}, sev2: {hours:null}, sev3: {hours:null} } },
+    teamOpen: { total: null, incidents: null, other: null }, team: ['Darshita','Heena','Yashy','Shreya','Parveen','Anshul','Nikhil','Rahul Sethi'].map(function (name) { return {name:name,inReview:null,closedToday:null,open:null}; }),
+    openTickets: [], windowLabel: 'Live CVIR data unavailable', warnings: ['Dashboard service unavailable · figures are hidden']
   };
   $('refreshButton').addEventListener('click', function () { fetchData(true); });
   setInterval(function () { state.countdown -= 1; if (state.countdown <= 0) fetchData(false); var m = Math.floor(state.countdown / 60); var s = state.countdown % 60; $('countdown').textContent = m + ':' + (s < 10 ? '0' : '') + s; }, 1000);

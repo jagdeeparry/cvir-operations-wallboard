@@ -6,6 +6,14 @@ for (const file of files) await readFile(new URL('../' + file, import.meta.url),
 const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
 const worker = await readFile(new URL('../src/worker.js', import.meta.url), 'utf8');
 new vm.Script(app);
+const { durationSeconds } = await import(new URL('../src/worker.js', import.meta.url));
+assert.equal(durationSeconds(7200), 7200);
+assert.equal(durationSeconds('86400'), 86400);
+assert.equal(durationSeconds(''), null);
+assert.equal(durationSeconds({}), null);
+assert.equal(durationSeconds({ value: '10800' }), 10800);
+assert.equal(durationSeconds({ seconds: 14400 }), 14400);
+assert.equal(durationSeconds({ completedCycles: [{ elapsedTime: { millis: 7200000 } }] }), 7200);
 assert.match(worker, /status CHANGED TO "In Review" AFTER startOfDay\(\)/);
 assert.match(worker, /uniqueIssues\(\[doneToday\.issues, rcaToday\.issues, inReviewToday\.issues\]\)/);
 assert.match(worker, /api\.atlassian\.com\/ex\/jira/);

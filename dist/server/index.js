@@ -28,6 +28,47 @@ function fieldValue(value) {
   if (Array.isArray(value)) return value.map(fieldValue).join(', ');
   return value.value || value.name || value.displayName || '';
 }
+export function durationSeconds(value) {
+  if (typeof value === 'number') return Number.isFinite(value) && value >= 0 ? value : null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  }
+  if (Array.isArray(value)) {
+    for (let index = value.length - 1; index >= 0; index -= 1) {
+      const parsed = durationSeconds(value[index]);
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+  if (!value || typeof value !== 'object') return null;
+
+  for (const key of ['seconds', 'durationSeconds', 'elapsedSeconds', 'value']) {
+    if (Object.prototype.hasOwnProperty.call(value, key)) {
+      const parsed = durationSeconds(value[key]);
+      if (parsed != null) return parsed;
+    }
+  }
+
+  const elapsedMillis = Number(value.elapsedTime && value.elapsedTime.millis);
+  if (Number.isFinite(elapsedMillis) && elapsedMillis >= 0) return elapsedMillis / 1000;
+
+  if (Array.isArray(value.completedCycles)) {
+    for (let index = value.completedCycles.length - 1; index >= 0; index -= 1) {
+      const parsed = durationSeconds(value.completedCycles[index]);
+      if (parsed != null) return parsed;
+    }
+  }
+
+  if (value.ongoingCycle) {
+    const parsed = durationSeconds(value.ongoingCycle);
+    if (parsed != null) return parsed;
+  }
+
+  return null;
+}
 async function fields(env) {
   if (fieldCache && fieldCache.expires > Date.now()) return fieldCache.value;
   const all = await jira(env, '/rest/api/3/field');
@@ -114,8 +155,8 @@ async function liveDashboard(env) {
   }));
   const completedThisWeek = uniqueIssues([resolvedWeek.issues, rcaWeek.issues]);
   const resolutionHours = (issue) => {
-    const ttrSeconds = ttrField ? Number(fieldValue(issue.fields[ttrField])) : NaN;
-    if (Number.isFinite(ttrSeconds) && ttrSeconds >= 0) return ttrSeconds / 3600;
+    const ttrSeconds = ttrField ? durationSeconds(issue.fields[ttrField]) : null;
+    if (ttrSeconds != null) return ttrSeconds / 3600;
     return issue.fields.resolutiondate ? hoursBetween(issue.fields.created, issue.fields.resolutiondate) : null;
   };
   const resolvedEntries = completedThisWeek.map((i) => ({ hours: resolutionHours(i), severity: severityOf(i) })).filter((x) => Number.isFinite(x.hours) && x.hours >= 0);

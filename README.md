@@ -30,7 +30,7 @@ Without these values the dashboard intentionally shows clearly labeled preview d
 - **Recent SEV-1:** unresolved incidents created during the configured recent window whose `INC Severity` is `Sev-1`. Priority `Highest` is used only if the custom field cannot be found.
 - **In Review:** tickets currently in the exact `In Review` status for each selected assignee.
 - **Closed today:** tickets in a Done status category whose resolution date is today, plus Incidents that entered `RCA in Progress` today, using the Jira site timezone.
-- **Weekly MTTR:** Incident statuses `Done` and `RCA in Progress` are both considered closed. MTTR uses the `Time to Resolution` value when present, otherwise `created` to `resolutiondate`; records without either resolution value are excluded. Results are broken out by `INC Severity` against the 2h/24h/72h targets.
+- **Weekly MTTR:** Incident statuses `Done` and `RCA in Progress` are both considered closed. MTTR converts the custom `Time to Resolution` field from seconds to hours; that field measures incident creation until the ticket reaches `RCA in Progress`. For Done incidents only, `created` to `resolutiondate` is used when the custom value is absent. Records without either value are excluded. Results are broken out by `INC Severity` against the 2h/24h/72h targets.
 - **Open ticket queue:** every operationally open CVIR work item assigned to the selected members, excluding all tickets in `In Review` or `RCA in Progress`.
 
 ## Local validation

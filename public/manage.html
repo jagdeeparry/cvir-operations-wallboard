@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#07121c" />
+    <title>Resource Alignment Manager</title>
+    <meta name="description" content="Manage CVIR resource alignment activities displayed on the operations wallboard." />
+    <link rel="stylesheet" href="/manage.css" />
+  </head>
+  <body>
+    <main class="manager-shell">
+      <header>
+        <div><p class="eyebrow">CVIR Operations</p><h1>Resource Alignment Manager</h1></div>
+        <a href="/" target="_blank" rel="noopener">Open TV dashboard</a>
+      </header>
+
+      <section class="panel login-panel" id="loginPanel">
+        <p class="eyebrow">Manager access</p>
+        <h2>Enter access code</h2>
+        <p class="hint">Editing is available only on this manager page. The television dashboard remains read-only.</p>
+        <form id="loginForm">
+          <label>Access code<input id="managerCode" type="password" autocomplete="current-password" required /></label>
+          <button type="submit">Continue</button>
+        </form>
+        <p class="message" id="loginMessage" role="status"></p>
+      </section>
+
+      <div id="managerWorkspace" hidden>
+        <section class="panel">
+          <div class="section-heading"><div><p class="eyebrow">Add alignment</p><h2>Ongoing activity</h2></div><button class="secondary" id="lockButton" type="button">Lock editor</button></div>
+          <form class="alignment-form" id="alignmentForm">
+            <label>Activity
+              <select id="activityType" required><option>SAT</option><option>FIIT</option><option>FAT</option><option>Other</option></select>
+            </label>
+            <label>Activity / customer<input id="activityTitle" maxlength="120" placeholder="e.g. Meter SAT — Bhopal" required /></label>
+            <label>Resources<input id="resources" maxlength="240" placeholder="e.g. Darshita, Anshul" required /></label>
+            <label>Schedule<input id="schedule" maxlength="120" placeholder="e.g. 26 Sep · 10:00–16:00" /></label>
+            <label class="wide">Notes<textarea id="notes" maxlength="500" rows="3" placeholder="Location, dependency, or handoff note"></textarea></label>
+            <div class="wide form-actions"><button type="submit">Add to TV board</button><span class="message" id="formMessage" role="status"></span></div>
+          </form>
+        </section>
+
+        <section class="panel">
+          <div class="section-heading"><div><p class="eyebrow">Published on TV</p><h2>Current alignments</h2></div><span class="count" id="alignmentCount">0 items</span></div>
+          <div class="manager-list" id="managerList"><div class="empty">Loading alignments…</div></div>
+        </section>
+      </div>
+    </main>
+    <script src="/manage.js"></script>
+  </body>
+</html>

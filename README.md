@@ -7,7 +7,22 @@ A read-only, television-first dashboard for the Jira `CVIR` project. It refreshe
 - an audible repeating alarm and full-screen acknowledgement popup for each newly seen SEV-1 ticket;
 - current In Review and closed-today counts for Darshita, Heena, Yashy, Shreya, Parveen, Anshul, Nikhil, and Rahul Sethi;
 - current-week incident MTTR from Monday in Asia/Kolkata, split into Operational and Drishti groups;
-- open CVIR tickets assigned to those members, excluding `In Review` and `RCA in Progress`.
+- open CVIR tickets assigned to those members, excluding `In Review` and `RCA in Progress`;
+- manager-maintained resource alignment for SAT, FIIT, FAT, and other ongoing work outside the ticket queue.
+
+## Resource alignment manager
+
+The television dashboard is read-only. Managers update the shared Resource Alignment card from the separate `/manage` page on a laptop. That page is intentionally not linked from the TV dashboard and is not included in the Tizen package.
+
+After entering the manager access code, a manager can add or remove an alignment with:
+
+- activity type: SAT, FIIT, FAT, or Other;
+- activity/customer title;
+- aligned resources;
+- schedule;
+- optional notes.
+
+Entries are stored centrally in Cloudflare D1 and are therefore shared by every laptop and television. The TV fetches the current list on startup and during each five-minute refresh; multiple pages rotate automatically every 12 seconds.
 
 ## Live Jira configuration
 
@@ -20,10 +35,11 @@ The server expects these runtime values. Keep them secret and configure them on 
 | `JIRA_API_TOKEN` | Jira API token for that service account |
 | `SEV1_RECENT_MINUTES` | Optional; defaults to `30` |
 | `JIRA_TEAM_ACCOUNT_IDS_JSON` | Optional explicit display-name → Jira account-ID map for ambiguous names |
+| `RESOURCE_MANAGER_ACCESS_CODE` | Secret access code required for add/remove actions on `/manage` |
 
 Example mapping shape: `{"Darshita":"account-id", "Yashy":"account-id"}`.
 
-Without these values the dashboard intentionally shows clearly labeled preview data. The Jira connector uses only GET/search operations and performs no issue changes.
+Without the Jira values the dashboard intentionally hides unavailable Jira figures. The Jira connector uses only GET/search operations and performs no issue changes. Resource alignment is independent of Jira and uses its own shared database.
 
 ## Metric definitions
 

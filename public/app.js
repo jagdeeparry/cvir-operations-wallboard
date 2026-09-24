@@ -3,9 +3,10 @@
 
   var REFRESH_SECONDS = 300;
   var PAGE_SIZE = 6;
+  var RESOURCE_PAGE_SIZE = 5;
   var ROTATE_SECONDS = 12;
   var SEEN_SEV1_STORAGE = 'cvir-seen-sev1-keys-v1';
-  var state = { countdown: REFRESH_SECONDS, page: 0, tickets: [], data: null, busy: false };
+  var state = { countdown: REFRESH_SECONDS, page: 0, resourcePage: 0, tickets: [], alignments: [], resourceAvailable: true, data: null, busy: false };
   var audioContext = null;
   var alarmTimer = null;
   var alarmAutoCloseTimer = null;
@@ -123,6 +124,34 @@
       return '<div class="ticket-row" style="animation-delay:' + (index * 35) + 'ms"><span class="ticket-key"><i class="type-icon ' + (isIncident ? 'incident' : '') + '">' + (isIncident ? '!' : '◆') + '</i>' + esc(ticket.key) + '</span><span class="ticket-copy"><span class="ticket-title">' + esc(ticket.summary) + '</span><span class="ticket-updated">Updated ' + esc(ticket.updated) + '</span></span><span class="owner-chip">' + esc(ticket.assignee) + '</span><span class="status-chip">' + esc(ticket.status) + '</span></div>';
     }).join('');
   }
+  function renderResourceAlignments() {
+    var items = state.alignments;
+    if (!items.length) {
+      $('resourceList').innerHTML = '<div class="empty-state">' + (state.resourceAvailable ? 'No resource alignment has been added yet.' : 'Resource alignment is temporarily unavailable.') + '</div>';
+      $('resourceRange').textContent = state.resourceAvailable ? '0 activities' : 'Unavailable';
+      $('resourcePagerDots').innerHTML = '';
+      return;
+    }
+    var pages = Math.ceil(items.length / RESOURCE_PAGE_SIZE);
+    if (state.resourcePage >= pages) state.resourcePage = 0;
+    var start = state.resourcePage * RESOURCE_PAGE_SIZE;
+    var slice = items.slice(start, start + RESOURCE_PAGE_SIZE);
+    $('resourceRange').textContent = (start + 1) + '–' + Math.min(start + RESOURCE_PAGE_SIZE, items.length) + ' of ' + items.length;
+    $('resourcePagerDots').innerHTML = Array.apply(null, Array(Math.min(pages, 8))).map(function (_, index) { return '<i class="' + (index === state.resourcePage ? 'active' : '') + '"></i>'; }).join('');
+    $('resourceList').innerHTML = slice.map(function (item, index) {
+      var badgeClass = String(item.activityType || 'Other').toLowerCase();
+      var meta = [];
+      if (item.schedule) meta.push('<span>' + esc(item.schedule) + '</span>');
+      if (item.notes) meta.push('<span>' + esc(item.notes) + '</span>');
+      return '<div class="alignment-row" style="animation-delay:' + (index * 40) + 'ms"><span class="alignment-badge ' + esc(badgeClass) + '">' + esc(item.activityType || 'Other') + '</span><span class="alignment-copy"><span class="alignment-title">' + esc(item.title) + '</span><span class="alignment-resources">' + esc(item.resources) + '</span>' + (meta.length ? '<span class="alignment-meta">' + meta.join('') + '</span>' : '') + '</span></div>';
+    }).join('');
+  }
+  function fetchResourceAlignments() {
+    return fetch(apiBase + '/api/resource-alignments', { cache: 'no-store', headers: { 'Accept': 'application/json' } })
+      .then(function (response) { if (!response.ok) throw new Error('Resource service returned ' + response.status); return response.json(); })
+      .then(function (data) { state.alignments = Array.isArray(data.items) ? data.items : []; state.resourcePage = 0; state.resourceAvailable = true; renderResourceAlignments(); })
+      .catch(function () { state.alignments = []; state.resourcePage = 0; state.resourceAvailable = false; renderResourceAlignments(); });
+  }
   function render(data) {
     state.data = data; state.tickets = data.openTickets || []; state.page = 0;
     $('openIncidents').textContent = data.openIncidentCount == null ? '—' : data.openIncidentCount;
@@ -149,6 +178,7 @@
   function fetchData(manual) {
     if (state.busy) return;
     state.busy = true; $('refreshButton').classList.add('loading');
+    fetchResourceAlignments();
     fetch(apiBase + '/api/dashboard', { cache: 'no-store', headers: { 'Accept': 'application/json' } })
       .then(function (r) { if (!r.ok) throw new Error('Dashboard service returned ' + r.status); return r.json(); })
       .then(function (data) { render(data); handleNewSev1(data); state.countdown = REFRESH_SECONDS; if (manual) toast(data.mode === 'live' ? 'Live Jira data refreshed' : 'Live Jira data unavailable'); })
@@ -166,6 +196,11 @@
   document.addEventListener('pointerdown', function () { var context = getAudioContext(); if (context && context.state === 'suspended') context.resume().catch(function () {}); }, { once: true });
   $('refreshButton').addEventListener('click', function () { fetchData(true); });
   setInterval(function () { state.countdown -= 1; if (state.countdown <= 0) fetchData(false); var m = Math.floor(state.countdown / 60); var s = state.countdown % 60; $('countdown').textContent = m + ':' + (s < 10 ? '0' : '') + s; }, 1000);
-  setInterval(function () { var pages = Math.ceil(state.tickets.length / PAGE_SIZE); if (pages > 1) { state.page = (state.page + 1) % pages; renderQueue(); } }, ROTATE_SECONDS * 1000);
+  setInterval(function () {
+    var pages = Math.ceil(state.tickets.length / PAGE_SIZE);
+    var resourcePages = Math.ceil(state.alignments.length / RESOURCE_PAGE_SIZE);
+    if (pages > 1) { state.page = (state.page + 1) % pages; renderQueue(); }
+    if (resourcePages > 1) { state.resourcePage = (state.resourcePage + 1) % resourcePages; renderResourceAlignments(); }
+  }, ROTATE_SECONDS * 1000);
   clock(); setInterval(clock, 1000); fetchData(false);
 }());

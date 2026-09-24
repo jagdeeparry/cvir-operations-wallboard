@@ -3,11 +3,72 @@ const DEFAULT_TEAM_ACCOUNT_IDS = { Darshita: '712020:c8cf55cc-36d0-41a2-936e-be1
 const ACTIVE_ASSIGNED_STATUSES = '("In Progress", "in progress (L1)", "in progress (L3)", Open, "in progress (L2)")';
 const DRISHTI_CREATOR = 'Arun Pandey';
 const DEFAULT_SEV1_WINDOW = 30;
+const RESOURCE_ACTIVITY_TYPES = ['SAT', 'FIIT', 'FAT', 'Other'];
 let fieldCache = null;
 let userCache = null;
 
 function json(value, status = 200) {
   return new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } });
+}
+function managerAuthorized(request, env) {
+  const expected = String(env.RESOURCE_MANAGER_ACCESS_CODE || '');
+  const actual = String(request.headers.get('x-manager-access-code') || '');
+  if (!expected || expected.length !== actual.length) return false;
+  let mismatch = 0;
+  for (let index = 0; index < expected.length; index += 1) mismatch |= expected.charCodeAt(index) ^ actual.charCodeAt(index);
+  return mismatch === 0;
+}
+function boundedText(value, maximum) {
+  return String(value == null ? '' : value).trim().slice(0, maximum);
+}
+function alignmentDatabase(env) {
+  if (!env.DB) throw new Error('Resource alignment database is not configured');
+  return env.DB;
+}
+async function listResourceAlignments(env) {
+  const result = await alignmentDatabase(env).prepare(
+    'SELECT id, activity_type AS activityType, title, resources, schedule, notes, sort_order AS sortOrder, created_at AS createdAt FROM resource_alignments ORDER BY sort_order ASC, id ASC'
+  ).all();
+  return result.results || [];
+}
+async function resourceAlignmentResponse(request, env, url) {
+  if (url.pathname === '/api/resource-alignments' && request.method === 'GET') {
+    try { return json({ items: await listResourceAlignments(env) }); }
+    catch (error) { return json({ items: [], error: String(error.message || error) }, 503); }
+  }
+  if (url.pathname === '/api/resource-alignments/auth' && request.method === 'GET') {
+    return managerAuthorized(request, env) ? json({ ok: true }) : json({ error: 'Invalid manager access code' }, 401);
+  }
+  if (url.pathname === '/api/resource-alignments' && request.method === 'POST') {
+    if (!managerAuthorized(request, env)) return json({ error: 'Invalid manager access code' }, 401);
+    let body;
+    try { body = await request.json(); }
+    catch (_) { return json({ error: 'Request body must be valid JSON' }, 400); }
+    const activityType = boundedText(body.activityType, 10);
+    const title = boundedText(body.title, 120);
+    const resources = boundedText(body.resources, 240);
+    const schedule = boundedText(body.schedule, 120);
+    const notes = boundedText(body.notes, 500);
+    if (!RESOURCE_ACTIVITY_TYPES.includes(activityType)) return json({ error: 'Choose SAT, FIIT, FAT, or Other' }, 400);
+    if (!title) return json({ error: 'Activity or customer is required' }, 400);
+    if (!resources) return json({ error: 'At least one resource is required' }, 400);
+    try {
+      const result = await alignmentDatabase(env).prepare(
+        'INSERT INTO resource_alignments (activity_type, title, resources, schedule, notes, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
+      ).bind(activityType, title, resources, schedule, notes, Date.now()).run();
+      return json({ ok: true, id: result.meta && result.meta.last_row_id }, 201);
+    } catch (error) { return json({ error: String(error.message || error) }, 503); }
+  }
+  const deleteMatch = url.pathname.match(/^\/api\/resource-alignments\/(\d+)$/);
+  if (deleteMatch && request.method === 'DELETE') {
+    if (!managerAuthorized(request, env)) return json({ error: 'Invalid manager access code' }, 401);
+    try {
+      await alignmentDatabase(env).prepare('DELETE FROM resource_alignments WHERE id = ?').bind(Number(deleteMatch[1])).run();
+      return json({ ok: true });
+    } catch (error) { return json({ error: String(error.message || error) }, 503); }
+  }
+  if (url.pathname.startsWith('/api/resource-alignments')) return json({ error: 'Method not allowed' }, 405);
+  return null;
 }
 function authHeaders(env) {
   const base = String(env.JIRA_BASE_URL || '').toLowerCase();
@@ -195,11 +256,22 @@ function unavailableDashboard(mode, warning) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const resourceResponse = await resourceAlignmentResponse(request, env, url);
+    if (resourceResponse) return resourceResponse;
     if (url.pathname === '/styles.css') {
       return new Response(__STYLES_CSS__, { headers: { 'content-type': 'text/css; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff' } });
     }
     if (url.pathname === '/app.js') {
       return new Response(__APP_JS__, { headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff' } });
+    }
+    if (url.pathname === '/manage.css') {
+      return new Response(__MANAGE_CSS__, { headers: { 'content-type': 'text/css; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff' } });
+    }
+    if (url.pathname === '/manage.js') {
+      return new Response(__MANAGE_JS__, { headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff' } });
+    }
+    if (url.pathname === '/manage' || url.pathname === '/manage/') {
+      return new Response(__MANAGE_HTML__, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache', 'content-security-policy': "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'", 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff' } });
     }
     if (url.pathname === '/api/dashboard') {
       if (!env.JIRA_BASE_URL || !env.JIRA_EMAIL || !env.JIRA_API_TOKEN) return json(unavailableDashboard('unconfigured', 'Jira is not connected · live CVIR figures are hidden'));

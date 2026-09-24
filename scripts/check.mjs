@@ -1,12 +1,17 @@
 import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-const files = ['public/index.html','public/styles.css','public/app.js','src/worker.js','.openai/hosting.json'];
+const files = ['public/index.html','public/styles.css','public/app.js','public/manage.html','public/manage.css','public/manage.js','src/worker.js','db/schema.ts','drizzle.config.ts','.openai/hosting.json'];
 for (const file of files) await readFile(new URL('../' + file, import.meta.url), 'utf8');
 const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+const managerHtml = await readFile(new URL('../public/manage.html', import.meta.url), 'utf8');
+const managerApp = await readFile(new URL('../public/manage.js', import.meta.url), 'utf8');
 const worker = await readFile(new URL('../src/worker.js', import.meta.url), 'utf8');
 new vm.Script(app);
-const { durationSeconds } = await import(new URL('../src/worker.js', import.meta.url));
+new vm.Script(managerApp);
+const workerModule = await import(new URL('../src/worker.js', import.meta.url));
+const { durationSeconds } = workerModule;
 assert.equal(durationSeconds(7200), 7200);
 assert.equal(durationSeconds('86400'), 86400);
 assert.equal(durationSeconds(''), null);
@@ -29,5 +34,37 @@ assert.match(app, /handleNewSev1\(data\)/);
 assert.match(app, /setInterval\(alarmBurst, 3600\)/);
 assert.match(app, /setTimeout\(stopSev1Alarm, 10000\)/);
 assert.match(app, /sevAlertAcknowledge/);
-JSON.parse(await readFile(new URL('../.openai/hosting.json', import.meta.url), 'utf8'));
+assert.match(app, /fetchResourceAlignments/);
+assert.match(app, /RESOURCE_PAGE_SIZE = 5/);
+assert.match(html, /id="resourceList"/);
+assert.doesNotMatch(html, /href="\/manage"/);
+assert.match(managerHtml, /id="alignmentForm"/);
+assert.match(worker, /X-Manager-Access-Code/i);
+assert.match(worker, /RESOURCE_MANAGER_ACCESS_CODE/);
+assert.match(worker, /INSERT INTO resource_alignments/);
+assert.match(worker, /DELETE FROM resource_alignments WHERE id = \?/);
+assert.match(worker, /url\.pathname === '\/manage'/);
+const hosting = JSON.parse(await readFile(new URL('../.openai/hosting.json', import.meta.url), 'utf8'));
+assert.equal(hosting.d1, 'DB');
+const calls = [];
+const fakeDb = {
+  prepare(sql) {
+    calls.push(sql);
+    return {
+      async all() { return { results: [{ id: 1, activityType: 'SAT', title: 'Customer SAT', resources: 'Darshita', schedule: 'Friday', notes: '', sortOrder: 1, createdAt: '2026-09-24' }] }; },
+      bind(...values) { calls.push(values); return { async run() { return { meta: { last_row_id: 2 } }; } }; }
+    };
+  }
+};
+const workerEnv = { DB: fakeDb, RESOURCE_MANAGER_ACCESS_CODE: 'manager-test-code' };
+let response = await workerModule.default.fetch(new Request('https://example.test/api/resource-alignments'), workerEnv);
+assert.equal(response.status, 200);
+assert.equal((await response.json()).items.length, 1);
+response = await workerModule.default.fetch(new Request('https://example.test/api/resource-alignments/auth'), workerEnv);
+assert.equal(response.status, 401);
+response = await workerModule.default.fetch(new Request('https://example.test/api/resource-alignments', { method: 'POST', headers: { 'content-type': 'application/json', 'x-manager-access-code': 'manager-test-code' }, body: JSON.stringify({ activityType: 'FIIT', title: 'Integration test', resources: 'Heena', schedule: 'Monday', notes: 'Lab' }) }), workerEnv);
+assert.equal(response.status, 201);
+response = await workerModule.default.fetch(new Request('https://example.test/api/resource-alignments/2', { method: 'DELETE', headers: { 'x-manager-access-code': 'manager-test-code' } }), workerEnv);
+assert.equal(response.status, 200);
+assert.ok(calls.some((call) => typeof call === 'string' && call.startsWith('INSERT INTO resource_alignments')));
 console.log('Source files and browser JavaScript validated');

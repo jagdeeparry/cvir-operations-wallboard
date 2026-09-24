@@ -10,7 +10,11 @@ function json(value, status = 200) {
   return new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } });
 }
 function authHeaders(env) {
-  return { 'authorization': 'Basic ' + btoa(env.JIRA_EMAIL + ':' + env.JIRA_API_TOKEN), 'accept': 'application/json', 'content-type': 'application/json' };
+  const base = String(env.JIRA_BASE_URL || '').toLowerCase();
+  const authorization = base.startsWith('https://api.atlassian.com/ex/jira/')
+    ? 'Bearer ' + env.JIRA_API_TOKEN
+    : 'Basic ' + btoa(env.JIRA_EMAIL + ':' + env.JIRA_API_TOKEN);
+  return { authorization, 'accept': 'application/json', 'content-type': 'application/json' };
 }
 async function jira(env, path, options = {}) {
   const base = String(env.JIRA_BASE_URL || '').replace(/\/$/, '');

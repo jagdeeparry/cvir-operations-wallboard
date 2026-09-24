@@ -8,6 +8,8 @@ const worker = await readFile(new URL('../src/worker.js', import.meta.url), 'utf
 new vm.Script(app);
 assert.match(worker, /status CHANGED TO "In Review" AFTER startOfDay\(\)/);
 assert.match(worker, /uniqueIssues\(\[doneToday\.issues, rcaToday\.issues, inReviewToday\.issues\]\)/);
+assert.match(worker, /api\.atlassian\.com\/ex\/jira/);
+assert.match(worker, /'Bearer ' \+ env\.JIRA_API_TOKEN/);
 assert.match(app, /Closed \/ In Review today/);
 JSON.parse(await readFile(new URL('../.openai/hosting.json', import.meta.url), 'utf8'));
 console.log('Source files and browser JavaScript validated');

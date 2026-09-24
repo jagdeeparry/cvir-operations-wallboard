@@ -5,8 +5,8 @@ A read-only, television-first dashboard for the Jira `CVIR` project. It refreshe
 - operationally open Incident count, excluding `In Review` and `RCA in Progress`;
 - a blinking red beacon for SEV-1 incidents created within the configured recent window;
 - current In Review and closed-today counts for Darshita, Heena, Yashy, Shreya, Parveen, Anshul, Nikhil, and Rahul Sethi;
-- current-week incident MTTR from Monday in Asia/Kolkata, calculated as mean elapsed time from creation to resolution;
-- all open CVIR tickets assigned to those members, including Incidents and other work types.
+- current-week incident MTTR from Monday in Asia/Kolkata, split into Operational and Drishti groups;
+- open CVIR tickets assigned to those members, excluding `In Review` and `RCA in Progress`.
 
 ## Live Jira configuration
 
@@ -30,8 +30,8 @@ Without these values the dashboard intentionally shows clearly labeled preview d
 - **Recent SEV-1:** unresolved incidents created during the configured recent window whose `INC Severity` is `Sev-1`. Priority `Highest` is used only if the custom field cannot be found.
 - **In Review:** tickets currently in the exact `In Review` status for each selected assignee.
 - **Closed today:** tickets in a Done status category whose resolution date is today, plus Incidents that entered `RCA in Progress` today, using the Jira site timezone.
-- **Weekly MTTR:** Incident statuses `Done` and `RCA in Progress` are both considered closed. MTTR converts the custom `Time to Resolution` field from seconds to hours; that field measures incident creation until the ticket reaches `RCA in Progress`. For Done incidents only, `created` to `resolutiondate` is used when the custom value is absent. Records without either value are excluded. Results are broken out by `INC Severity` against the 2h/24h/72h targets.
-- **Open ticket queue:** every operationally open CVIR work item assigned to the selected members, excluding all tickets in `In Review` or `RCA in Progress`.
+- **Weekly MTTR:** Incident statuses `Done` and `RCA in Progress` are both considered closed. MTTR converts the custom `Time to Resolution` field from seconds to hours; that field measures incident creation until the ticket reaches `RCA in Progress`. Incidents created by Arun Pandey form the Drishti group; incidents created by every other user form the Operational group. For Done incidents only, `created` to `resolutiondate` is used when the custom value is absent. Records without either value are excluded. Each group is broken out by `INC Severity` against the 2h/24h/72h targets.
+- **Open ticket queue:** CVIR work assigned to the selected members whose current status is `In Progress`, `in progress (L1)`, `in progress (L2)`, `in progress (L3)`, or `Open`. `In Review` and `RCA in Progress` are excluded. Darshita is pinned to Jira account ID `712020:c8cf55cc-36d0-41a2-936e-be1b0946dadf`; verification uses the supplied JQL with `In Review` removed.
 
 ## Local validation
 

@@ -19,12 +19,19 @@
   }
   function toast(message) { var el = $('toast'); el.textContent = message; el.classList.add('show'); setTimeout(function () { el.classList.remove('show'); }, 2600); }
   function drawSpark(values) { $('incidentSpark').innerHTML = values.map(function (v) { return '<i style="height:' + Math.max(16, Math.min(100, v)) + '%"></i>'; }).join(''); }
-  function renderMttrLane(number, entry, target) {
+  function renderMttrLane(group, number, entry, target) {
     var hours = entry && entry.hours;
-    $('mttrSev' + number).textContent = hours == null ? '—' : formatDuration(hours);
+    $(group + 'MttrSev' + number).textContent = hours == null ? '—' : formatDuration(hours);
     var ratio = hours == null ? 0 : hours / target;
-    $('mttrBar' + number).style.width = Math.min(100, Math.max(hours == null ? 0 : 5, ratio * 100)) + '%';
-    $('mttrLane' + number).classList.toggle('breach', hours != null && hours > target);
+    $(group + 'MttrBar' + number).style.width = Math.min(100, Math.max(hours == null ? 0 : 5, ratio * 100)) + '%';
+    $(group + 'MttrLane' + number).classList.toggle('breach', hours != null && hours > target);
+  }
+  function renderMttrGroup(group, data) {
+    var value = data || { resolvedCount: null, bySeverity: {} };
+    renderMttrLane(group, 1, value.bySeverity.sev1, 2);
+    renderMttrLane(group, 2, value.bySeverity.sev2, 24);
+    renderMttrLane(group, 3, value.bySeverity.sev3, 72);
+    $(group + 'MttrCount').textContent = value.resolvedCount == null ? '— incidents' : value.resolvedCount + ' incidents';
   }
   function renderTeam(team) {
     function metric(value) { return value == null ? '—' : value; }
@@ -55,9 +62,8 @@
     $('sevWindow').textContent = 'last ' + data.sev1WindowMinutes + ' min';
     $('sevCard').classList.toggle('alert', data.recentSev1.length > 0);
     $('sevMessage').textContent = data.mode !== 'live' ? 'Waiting for live Jira data' : (data.recentSev1.length ? (data.recentSev1[0].key + ' · ' + data.recentSev1[0].summary) : 'No new critical incidents');
-    renderMttrLane(1, data.mttr.bySeverity.sev1, 2);
-    renderMttrLane(2, data.mttr.bySeverity.sev2, 24);
-    renderMttrLane(3, data.mttr.bySeverity.sev3, 72);
+    renderMttrGroup('operational', data.mttr.operational);
+    renderMttrGroup('drishti', data.mttr.drishti);
     $('mttrResolvedLabel').textContent = data.mttr.resolvedCount == null ? 'Live data required' : data.mttr.resolvedCount + ' resolved · Mon → now';
     $('teamOpenTotal').textContent = data.teamOpen.total == null ? '—' : data.teamOpen.total;
     $('teamIncidentTotal').textContent = data.teamOpen.incidents == null ? '—' : data.teamOpen.incidents;
@@ -69,7 +75,7 @@
     $('modePill').classList.toggle('live', data.mode === 'live');
     $('modePill').classList.toggle('error', data.mode !== 'live');
     $('modeText').textContent = data.mode === 'live' ? 'Jira live' : (data.mode === 'unconfigured' ? 'Jira not connected' : 'Jira unavailable');
-    $('warningText').textContent = data.warnings && data.warnings.length ? data.warnings[0] : 'In Review / RCA in Progress counted closed · read-only';
+    $('warningText').textContent = data.warnings && data.warnings.length ? data.warnings[0] : 'In Review / RCA in Progress excluded from open queue · read-only';
   }
   function fetchData(manual) {
     if (state.busy) return;
@@ -82,7 +88,7 @@
   }
   window.CVIR_UNAVAILABLE_DATA = {
     mode: 'error', generatedAt: new Date().toISOString(), sev1WindowMinutes: 30, openIncidentCount: null,
-    openIncidentTrend: [], recentSev1: [], mttr: { resolvedCount: null, bySeverity: { sev1: {hours:null}, sev2: {hours:null}, sev3: {hours:null} } },
+    openIncidentTrend: [], recentSev1: [], mttr: { resolvedCount: null, operational: { resolvedCount: null, bySeverity: { sev1: {hours:null}, sev2: {hours:null}, sev3: {hours:null} } }, drishti: { resolvedCount: null, bySeverity: { sev1: {hours:null}, sev2: {hours:null}, sev3: {hours:null} } } },
     teamOpen: { total: null, incidents: null, other: null }, team: ['Darshita','Heena','Yashy','Shreya','Parveen','Anshul','Nikhil','Rahul Sethi'].map(function (name) { return {name:name,assignedOpen:null,completedOrReviewedToday:null}; }),
     openTickets: [], windowLabel: 'Live CVIR data unavailable', warnings: ['Dashboard service unavailable · figures are hidden']
   };

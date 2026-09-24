@@ -49,16 +49,29 @@
         </article>
 
         <article class="card mttr-card">
-          <div class="card-label"><span>Weekly MTTR by severity</span><span id="mttrResolvedLabel">Mon → now</span></div>
-          <div class="mttr-lanes">
-            <div class="mttr-lane" id="mttrLane1"><span class="severity-badge sev1">SEV-1</span><strong id="mttrSev1">—</strong><span class="mttr-target">target 2h</span><i><b id="mttrBar1"></b></i></div>
-            <div class="mttr-lane" id="mttrLane2"><span class="severity-badge sev2">SEV-2</span><strong id="mttrSev2">—</strong><span class="mttr-target">target 24h</span><i><b id="mttrBar2"></b></i></div>
-            <div class="mttr-lane" id="mttrLane3"><span class="severity-badge sev3">SEV-3</span><strong id="mttrSev3">—</strong><span class="mttr-target">target 72h</span><i><b id="mttrBar3"></b></i></div>
+          <div class="card-label"><span>Weekly MTTR split</span><span id="mttrResolvedLabel">Mon → now</span></div>
+          <div class="mttr-groups">
+            <section class="mttr-group" aria-label="Operational MTTR">
+              <div class="mttr-group-heading"><strong>Operational</strong><span id="operationalMttrCount">— incidents</span></div>
+              <div class="mttr-lanes">
+                <div class="mttr-lane" id="operationalMttrLane1"><span class="severity-badge sev1">SEV-1</span><strong id="operationalMttrSev1">—</strong><span class="mttr-target">2h</span><i><b id="operationalMttrBar1"></b></i></div>
+                <div class="mttr-lane" id="operationalMttrLane2"><span class="severity-badge sev2">SEV-2</span><strong id="operationalMttrSev2">—</strong><span class="mttr-target">24h</span><i><b id="operationalMttrBar2"></b></i></div>
+                <div class="mttr-lane" id="operationalMttrLane3"><span class="severity-badge sev3">SEV-3</span><strong id="operationalMttrSev3">—</strong><span class="mttr-target">72h</span><i><b id="operationalMttrBar3"></b></i></div>
+              </div>
+            </section>
+            <section class="mttr-group drishti" aria-label="Drishti MTTR">
+              <div class="mttr-group-heading"><strong>Drishti</strong><span id="drishtiMttrCount">— incidents</span></div>
+              <div class="mttr-lanes">
+                <div class="mttr-lane" id="drishtiMttrLane1"><span class="severity-badge sev1">SEV-1</span><strong id="drishtiMttrSev1">—</strong><span class="mttr-target">2h</span><i><b id="drishtiMttrBar1"></b></i></div>
+                <div class="mttr-lane" id="drishtiMttrLane2"><span class="severity-badge sev2">SEV-2</span><strong id="drishtiMttrSev2">—</strong><span class="mttr-target">24h</span><i><b id="drishtiMttrBar2"></b></i></div>
+                <div class="mttr-lane" id="drishtiMttrLane3"><span class="severity-badge sev3">SEV-3</span><strong id="drishtiMttrSev3">—</strong><span class="mttr-target">72h</span><i><b id="drishtiMttrBar3"></b></i></div>
+              </div>
+            </section>
           </div>
         </article>
 
         <article class="card workload-card">
-          <div class="card-label"><span>Team open load</span><span>all work types</span></div>
+          <div class="card-label"><span>Team open load</span><span>In Review excluded</span></div>
           <div class="kpi-row"><strong class="kpi-value" id="teamOpenTotal">—</strong><span class="kpi-unit">tickets</span></div>
           <div class="mini-split"><span><i class="legend incident"></i><b id="teamIncidentTotal">—</b> incidents</span><span><i class="legend other"></i><b id="teamOtherTotal">—</b> other</span></div>
         </article>

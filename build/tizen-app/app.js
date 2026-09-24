@@ -69,7 +69,7 @@
     $('modePill').classList.toggle('live', data.mode === 'live');
     $('modePill').classList.toggle('error', data.mode !== 'live');
     $('modeText').textContent = data.mode === 'live' ? 'Jira live' : (data.mode === 'unconfigured' ? 'Jira not connected' : 'Jira unavailable');
-    $('warningText').textContent = data.warnings && data.warnings.length ? data.warnings[0] : 'RCA in Progress counted closed · read-only';
+    $('warningText').textContent = data.warnings && data.warnings.length ? data.warnings[0] : 'In Review / RCA in Progress counted closed · read-only';
   }
   function fetchData(manual) {
     if (state.busy) return;

@@ -90,12 +90,12 @@ async function liveDashboard(env) {
   const sevMinutes = Number(env.SEV1_RECENT_MINUTES || DEFAULT_SEV1_WINDOW);
   const base = 'project = CVIR';
   const [openIncidents, recentIncidents, inReviewToday, doneToday, rcaToday, openTeam, resolvedWeek, rcaWeek] = await Promise.all([
-    search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status != "RCA in Progress"', ['key'], 5000),
+    search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status NOT IN ("In Review", "RCA in Progress")', ['key'], 5000),
     search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status != "RCA in Progress" AND created >= -' + sevMinutes + 'm ORDER BY created DESC', ['summary','created', sevField || 'priority'], 100),
     search(env, base + ' AND status CHANGED TO "In Review" AFTER startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
     search(env, base + ' AND statusCategory = Done AND resolutiondate >= startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
     search(env, base + ' AND issuetype = Incident AND status = "RCA in Progress" AND status CHANGED TO "RCA in Progress" AFTER startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
-    search(env, base + ' AND statusCategory != Done AND (issuetype != Incident OR status != "RCA in Progress") AND assignee in (' + accountList + ') ORDER BY priority DESC, updated DESC', ['summary','issuetype','assignee','status','updated'], 500),
+    search(env, base + ' AND statusCategory != Done AND status NOT IN ("In Review", "RCA in Progress") AND assignee in (' + accountList + ') ORDER BY priority DESC, updated DESC', ['summary','issuetype','assignee','status','updated'], 500),
     search(env, base + ' AND issuetype = Incident AND statusCategory = Done AND resolutiondate >= "' + monday + '" AND resolutiondate IS NOT EMPTY', ['created','resolutiondate', sevField || 'priority', ttrField || 'updated'], 500),
     search(env, base + ' AND issuetype = Incident AND status = "RCA in Progress" AND status CHANGED TO "RCA in Progress" AFTER "' + monday + '"', ['created','resolutiondate', sevField || 'priority', ttrField || 'updated'], 500)
   ]);

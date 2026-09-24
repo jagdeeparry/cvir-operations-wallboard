@@ -4,7 +4,11 @@
   var REFRESH_SECONDS = 300;
   var PAGE_SIZE = 6;
   var ROTATE_SECONDS = 12;
+  var SEEN_SEV1_STORAGE = 'cvir-seen-sev1-keys-v1';
   var state = { countdown: REFRESH_SECONDS, page: 0, tickets: [], data: null, busy: false };
+  var audioContext = null;
+  var alarmTimer = null;
+  var alarmAutoCloseTimer = null;
   var apiMeta = document.querySelector('meta[name="cvir-api-base"]');
   var apiBase = apiMeta && apiMeta.content ? apiMeta.content.replace(/\/$/, '') : '';
 
@@ -18,6 +22,71 @@
     $('date').textContent = new Intl.DateTimeFormat('en-IN', { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'Asia/Kolkata' }).format(now);
   }
   function toast(message) { var el = $('toast'); el.textContent = message; el.classList.add('show'); setTimeout(function () { el.classList.remove('show'); }, 2600); }
+  function seenSev1Keys() {
+    try { var stored = JSON.parse(localStorage.getItem(SEEN_SEV1_STORAGE) || '[]'); return Array.isArray(stored) ? stored : []; }
+    catch (_) { return []; }
+  }
+  function saveSeenSev1Keys(keys) {
+    try { localStorage.setItem(SEEN_SEV1_STORAGE, JSON.stringify(keys.slice(-100))); } catch (_) {}
+  }
+  function getAudioContext() {
+    if (audioContext) return audioContext;
+    var AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return null;
+    try { audioContext = new AudioContext(); } catch (_) { audioContext = null; }
+    return audioContext;
+  }
+  function alarmBurst() {
+    var context = getAudioContext();
+    if (!context) return Promise.resolve(false);
+    function play() {
+      var now = context.currentTime;
+      [0, .34, .68].forEach(function (offset, index) {
+        var oscillator = context.createOscillator();
+        var gain = context.createGain();
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(index % 2 ? 660 : 880, now + offset);
+        gain.gain.setValueAtTime(.0001, now + offset);
+        gain.gain.exponentialRampToValueAtTime(.22, now + offset + .03);
+        gain.gain.exponentialRampToValueAtTime(.0001, now + offset + .24);
+        oscillator.connect(gain); gain.connect(context.destination);
+        oscillator.start(now + offset); oscillator.stop(now + offset + .26);
+      });
+      return true;
+    }
+    if (context.state === 'suspended') return context.resume().then(play).catch(function () { return false; });
+    try { return Promise.resolve(play()); } catch (_) { return Promise.resolve(false); }
+  }
+  function stopSev1Alarm() {
+    if (alarmTimer) { clearInterval(alarmTimer); alarmTimer = null; }
+    if (alarmAutoCloseTimer) { clearTimeout(alarmAutoCloseTimer); alarmAutoCloseTimer = null; }
+    $('sevAlertOverlay').hidden = true;
+  }
+  function startSev1Alarm() {
+    if (alarmTimer) clearInterval(alarmTimer);
+    alarmBurst().then(function (played) {
+      $('sevAlertNote').textContent = played ? 'Alarm ringing · closes automatically in 1 minute' : 'Sound blocked · visual alert closes automatically in 1 minute';
+    });
+    alarmTimer = setInterval(alarmBurst, 3600);
+  }
+  function showSev1Alert(incidents) {
+    var first = incidents[0];
+    $('sevAlertKey').textContent = incidents.length > 1 ? incidents.length + ' new SEV-1 incidents' : first.key;
+    $('sevAlertSummary').textContent = incidents.length > 1 ? first.key + ' · ' + first.summary + ' · plus ' + (incidents.length - 1) + ' more' : first.summary;
+    $('sevAlertOverlay').hidden = false;
+    startSev1Alarm();
+    if (alarmAutoCloseTimer) clearTimeout(alarmAutoCloseTimer);
+    alarmAutoCloseTimer = setTimeout(stopSev1Alarm, 60000);
+    setTimeout(function () { $('sevAlertAcknowledge').focus(); }, 0);
+  }
+  function handleNewSev1(data) {
+    if (!data || data.mode !== 'live' || !Array.isArray(data.recentSev1)) return;
+    var seen = seenSev1Keys();
+    var newIncidents = data.recentSev1.filter(function (incident) { return incident && incident.key && seen.indexOf(incident.key) === -1; });
+    if (!newIncidents.length) return;
+    saveSeenSev1Keys(seen.concat(newIncidents.map(function (incident) { return incident.key; })));
+    showSev1Alert(newIncidents);
+  }
   function drawSpark(values) { $('incidentSpark').innerHTML = values.map(function (v) { return '<i style="height:' + Math.max(16, Math.min(100, v)) + '%"></i>'; }).join(''); }
   function renderMttrLane(group, number, entry, target) {
     var hours = entry && entry.hours;
@@ -82,7 +151,7 @@
     state.busy = true; $('refreshButton').classList.add('loading');
     fetch(apiBase + '/api/dashboard', { cache: 'no-store', headers: { 'Accept': 'application/json' } })
       .then(function (r) { if (!r.ok) throw new Error('Dashboard service returned ' + r.status); return r.json(); })
-      .then(function (data) { render(data); state.countdown = REFRESH_SECONDS; if (manual) toast(data.mode === 'live' ? 'Live Jira data refreshed' : 'Live Jira data unavailable'); })
+      .then(function (data) { render(data); handleNewSev1(data); state.countdown = REFRESH_SECONDS; if (manual) toast(data.mode === 'live' ? 'Live Jira data refreshed' : 'Live Jira data unavailable'); })
       .catch(function () { render(window.CVIR_UNAVAILABLE_DATA); state.countdown = REFRESH_SECONDS; if (manual) toast('Dashboard service unavailable'); })
       .then(function () { state.busy = false; $('refreshButton').classList.remove('loading'); });
   }
@@ -92,6 +161,9 @@
     teamOpen: { total: null, incidents: null, other: null }, team: ['Darshita','Heena','Yashy','Shreya','Parveen','Anshul','Nikhil','Rahul Sethi'].map(function (name) { return {name:name,assignedOpen:null,completedOrReviewedToday:null}; }),
     openTickets: [], windowLabel: 'Live CVIR data unavailable', warnings: ['Dashboard service unavailable · figures are hidden']
   };
+  $('sevAlertAcknowledge').addEventListener('click', stopSev1Alarm);
+  document.addEventListener('keydown', function (event) { var context = getAudioContext(); if (context && context.state === 'suspended') context.resume().catch(function () {}); if (event.key === 'Escape' && !$('sevAlertOverlay').hidden) stopSev1Alarm(); });
+  document.addEventListener('pointerdown', function () { var context = getAudioContext(); if (context && context.state === 'suspended') context.resume().catch(function () {}); }, { once: true });
   $('refreshButton').addEventListener('click', function () { fetchData(true); });
   setInterval(function () { state.countdown -= 1; if (state.countdown <= 0) fetchData(false); var m = Math.floor(state.countdown / 60); var s = state.countdown % 60; $('countdown').textContent = m + ':' + (s < 10 ? '0' : '') + s; }, 1000);
   setInterval(function () { var pages = Math.ceil(state.tickets.length / PAGE_SIZE); if (pages > 1) { state.page = (state.page + 1) % pages; renderQueue(); } }, ROTATE_SECONDS * 1000);

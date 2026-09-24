@@ -105,6 +105,17 @@
       </footer>
     </main>
     <div class="toast" id="toast" role="status"></div>
+    <div class="sev-alert-overlay" id="sevAlertOverlay" role="alertdialog" aria-modal="true" aria-labelledby="sevAlertTitle" aria-describedby="sevAlertSummary" hidden>
+      <div class="sev-alert-panel">
+        <div class="sev-alert-beacon" aria-hidden="true">!</div>
+        <p class="eyebrow">New critical incident</p>
+        <h2 id="sevAlertTitle">SEV-1 raised</h2>
+        <strong class="sev-alert-key" id="sevAlertKey">—</strong>
+        <p class="sev-alert-summary" id="sevAlertSummary">A new SEV-1 requires attention.</p>
+        <p class="sev-alert-note" id="sevAlertNote">Alarm ringing · closes automatically in 1 minute</p>
+        <button class="sev-alert-action" id="sevAlertAcknowledge" type="button">Acknowledge</button>
+      </div>
+    </div>
     <script src="app.js"></script>
   </body>
 </html>

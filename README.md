@@ -4,6 +4,7 @@ A read-only, television-first dashboard for the Jira `CVIR` project. It refreshe
 
 - operationally open Incident count, excluding `In Review` and `RCA in Progress`;
 - a blinking red beacon for SEV-1 incidents created within the configured recent window;
+- an audible repeating alarm and full-screen acknowledgement popup for each newly seen SEV-1 ticket;
 - current In Review and closed-today counts for Darshita, Heena, Yashy, Shreya, Parveen, Anshul, Nikhil, and Rahul Sethi;
 - current-week incident MTTR from Monday in Asia/Kolkata, split into Operational and Drishti groups;
 - open CVIR tickets assigned to those members, excluding `In Review` and `RCA in Progress`.
@@ -28,6 +29,7 @@ Without these values the dashboard intentionally shows clearly labeled preview d
 
 - **Open incidents:** `project = CVIR`, type Incident, status category not Done, excluding `In Review` and `RCA in Progress` because both statuses are treated as operationally closed.
 - **Recent SEV-1:** unresolved incidents created during the configured recent window whose `INC Severity` is `Sev-1`. Priority `Highest` is used only if the custom field cannot be found.
+- **New SEV-1 alarm:** a newly seen ticket key triggers a full-screen alert and repeating tone for up to one minute. Acknowledge dismisses it immediately; otherwise it stops and closes automatically after 60 seconds. The last 100 alerted keys are stored only in that browser or TV using local storage, preventing the same incident from ringing again after each five-minute refresh. Browsers that block sound before user interaction still show the visual alert.
 - **In Review:** tickets currently in the exact `In Review` status for each selected assignee.
 - **Closed today:** tickets in a Done status category whose resolution date is today, plus Incidents that entered `RCA in Progress` today, using the Jira site timezone.
 - **Weekly MTTR:** Incident statuses `Done` and `RCA in Progress` are both considered closed. MTTR converts the custom `Time to Resolution` field from seconds to hours; that field measures incident creation until the ticket reaches `RCA in Progress`. Incidents created by Arun Pandey form the Drishti group; incidents created by every other user form the Operational group. For Done incidents only, `created` to `resolutiondate` is used when the custom value is absent. Records without either value are excluded. Each group is broken out by `INC Severity` against the 2h/24h/72h targets.

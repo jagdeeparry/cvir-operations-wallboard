@@ -27,7 +27,7 @@ assert.match(app, /renderMttrGroup\('drishti'/);
 assert.match(app, /cvir-seen-sev1-keys-v1/);
 assert.match(app, /handleNewSev1\(data\)/);
 assert.match(app, /setInterval\(alarmBurst, 3600\)/);
-assert.match(app, /setTimeout\(stopSev1Alarm, 60000\)/);
+assert.match(app, /setTimeout\(stopSev1Alarm, 10000\)/);
 assert.match(app, /sevAlertAcknowledge/);
 JSON.parse(await readFile(new URL('../.openai/hosting.json', import.meta.url), 'utf8'));
 console.log('Source files and browser JavaScript validated');

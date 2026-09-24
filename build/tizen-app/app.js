@@ -65,7 +65,7 @@
   function startSev1Alarm() {
     if (alarmTimer) clearInterval(alarmTimer);
     alarmBurst().then(function (played) {
-      $('sevAlertNote').textContent = played ? 'Alarm ringing · closes automatically in 1 minute' : 'Sound blocked · visual alert closes automatically in 1 minute';
+      $('sevAlertNote').textContent = played ? 'Alarm ringing · closes automatically in 10 seconds' : 'Sound blocked · visual alert closes automatically in 10 seconds';
     });
     alarmTimer = setInterval(alarmBurst, 3600);
   }
@@ -76,7 +76,7 @@
     $('sevAlertOverlay').hidden = false;
     startSev1Alarm();
     if (alarmAutoCloseTimer) clearTimeout(alarmAutoCloseTimer);
-    alarmAutoCloseTimer = setTimeout(stopSev1Alarm, 60000);
+    alarmAutoCloseTimer = setTimeout(stopSev1Alarm, 10000);
     setTimeout(function () { $('sevAlertAcknowledge').focus(); }, 0);
   }
   function handleNewSev1(data) {

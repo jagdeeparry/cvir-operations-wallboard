@@ -81,10 +81,10 @@
         <article class="card team-card">
           <div class="section-heading">
             <div><p class="eyebrow">Today’s handoff</p><h2>Team movement</h2></div>
-            <div class="legend-row"><span><i class="legend other"></i>Assigned open now</span><span><i class="legend closed"></i>Closed / In Review today</span></div>
+            <div class="legend-row"><span><i class="legend other"></i>Assigned open now</span><span><i class="legend closed"></i>Closed / In Review today</span><span><i class="legend rca"></i>RCA follow-up</span></div>
           </div>
           <div class="team-table" id="teamTable" role="table" aria-label="Team throughput">
-            <div class="team-header" role="row"><span role="columnheader">Owner</span><span role="columnheader">Assigned open</span><span role="columnheader">Closed / In Review today</span></div>
+            <div class="team-header" role="row"><span role="columnheader">Owner</span><span role="columnheader">Assigned open</span><span role="columnheader">Closed / In Review today</span><span role="columnheader">RCA</span></div>
             <div class="loading-lines"><span></span><span></span><span></span><span></span></div>
           </div>
         </article>
@@ -99,7 +99,7 @@
 
         <article class="card queue-card">
           <div class="section-heading">
-            <div><p class="eyebrow">Assigned workload</p><h2>Open ticket queue</h2></div>
+            <div><p class="eyebrow" id="queueEyebrow">Assigned workload</p><h2 id="queueTitle">Open ticket queue</h2></div>
             <div class="page-indicator"><span id="queueRange">—</span><div class="pager-dots" id="pagerDots"></div></div>
           </div>
           <div class="ticket-list" id="ticketList"><div class="empty-state">Loading current assignments…</div></div>

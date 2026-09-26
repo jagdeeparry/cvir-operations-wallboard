@@ -6,7 +6,7 @@
   var RESOURCE_PAGE_SIZE = 5;
   var ROTATE_SECONDS = 12;
   var SEEN_SEV1_STORAGE = 'cvir-seen-sev1-keys-v1';
-  var state = { countdown: REFRESH_SECONDS, page: 0, resourcePage: 0, tickets: [], alignments: [], resourceAvailable: true, data: null, busy: false };
+  var state = { countdown: REFRESH_SECONDS, page: 0, rcaPage: 0, queueMode: 'open', resourcePage: 0, tickets: [], rcaTickets: [], alignments: [], resourceAvailable: true, data: null, busy: false };
   var audioContext = null;
   var alarmTimer = null;
   var alarmAutoCloseTimer = null;
@@ -105,21 +105,41 @@
   }
   function renderTeam(team) {
     function metric(value) { return value == null ? '—' : value; }
-    var header = '<div class="team-header" role="row"><span role="columnheader">Owner</span><span role="columnheader">Assigned open</span><span role="columnheader">Closed / In Review today</span></div>';
+    var header = '<div class="team-header" role="row"><span role="columnheader">Owner</span><span role="columnheader">Assigned open</span><span role="columnheader">Closed / In Review today</span><span role="columnheader">RCA</span></div>';
     $('teamTable').innerHTML = header + team.map(function (member) {
-      return '<div class="team-row" role="row"><span class="person" role="cell"><i class="avatar">' + esc(initials(member.name)) + '</i><span class="person-name">' + esc(member.name) + '</span></span><span class="metric-cell open" role="cell">' + metric(member.assignedOpen) + '</span><span class="metric-cell closed" role="cell">' + metric(member.completedOrReviewedToday) + '</span></div>';
+      return '<div class="team-row" role="row"><span class="person" role="cell"><i class="avatar">' + esc(initials(member.name)) + '</i><span class="person-name">' + esc(member.name) + '</span></span><span class="metric-cell open" role="cell">' + metric(member.assignedOpen) + '</span><span class="metric-cell closed" role="cell">' + metric(member.completedOrReviewedToday) + '</span><span class="metric-cell rca" role="cell">' + metric(member.rcaInProgress) + '</span></div>';
     }).join('');
   }
   function renderQueue() {
-    var tickets = state.tickets;
-    if (!tickets.length) { var message = state.data && state.data.mode !== 'live' ? 'Live Jira connection required to load assignments.' : 'No open tickets assigned to the selected team.'; $('ticketList').innerHTML = '<div class="empty-state">' + message + '</div>'; $('queueRange').textContent = state.data && state.data.mode !== 'live' ? 'Unavailable' : '0 tickets'; $('pagerDots').innerHTML = ''; return; }
+    var showingRca = state.queueMode === 'rca';
+    var tickets = showingRca ? state.rcaTickets : state.tickets;
+    var currentPage = showingRca ? state.rcaPage : state.page;
+    $('queueEyebrow').textContent = showingRca ? 'Incident follow-up' : 'Assigned workload';
+    $('queueTitle').textContent = showingRca ? 'RCA in progress' : 'Open ticket queue';
+    document.querySelector('.queue-card').classList.toggle('showing-rca', showingRca);
+    if (!tickets.length) {
+      var liveMessage = showingRca ? 'No RCA-in-progress incidents match the selected team.' : 'No open tickets assigned to the selected team.';
+      var message = state.data && state.data.mode !== 'live' ? 'Live Jira connection required to load assignments.' : liveMessage;
+      $('ticketList').innerHTML = '<div class="empty-state">' + message + '</div>';
+      $('queueRange').textContent = state.data && state.data.mode !== 'live' ? 'Unavailable' : '0 tickets';
+      $('pagerDots').innerHTML = '';
+      return;
+    }
     var pages = Math.ceil(tickets.length / PAGE_SIZE);
-    if (state.page >= pages) state.page = 0;
-    var start = state.page * PAGE_SIZE;
+    if (currentPage >= pages) currentPage = 0;
+    if (showingRca) state.rcaPage = currentPage; else state.page = currentPage;
+    var start = currentPage * PAGE_SIZE;
     var slice = tickets.slice(start, start + PAGE_SIZE);
     $('queueRange').textContent = (start + 1) + '–' + Math.min(start + PAGE_SIZE, tickets.length) + ' of ' + tickets.length;
-    $('pagerDots').innerHTML = Array.apply(null, Array(Math.min(pages, 8))).map(function (_, i) { return '<i class="' + (i === state.page ? 'active' : '') + '"></i>'; }).join('');
+    $('pagerDots').innerHTML = Array.apply(null, Array(Math.min(pages, 8))).map(function (_, i) { return '<i class="' + (i === currentPage ? 'active' : '') + '"></i>'; }).join('');
     $('ticketList').innerHTML = slice.map(function (ticket, index) {
+      if (showingRca) {
+        var ownership = [];
+        if (ticket.assigneeMembers && ticket.assigneeMembers.length) ownership.push('Assigned: ' + ticket.assigneeMembers.join(', '));
+        if (ticket.l2Members && ticket.l2Members.length) ownership.push('L2: ' + ticket.l2Members.join(', '));
+        if (!ownership.length && ticket.matchedMembers) ownership.push(ticket.matchedMembers.join(', '));
+        return '<div class="ticket-row rca-row" style="animation-delay:' + (index * 35) + 'ms"><span class="ticket-key"><i class="type-icon incident">!</i>' + esc(ticket.key) + '</span><span class="ticket-copy"><span class="ticket-title">' + esc(ticket.summary) + '</span><span class="ticket-updated">Updated ' + esc(ticket.updated) + (ticket.assignee ? ' · Jira assignee ' + esc(ticket.assignee) : '') + '</span></span><span class="owner-chip rca-owner">' + esc(ownership.join(' · ')) + '</span><span class="status-chip rca-status">RCA</span></div>';
+      }
       var isIncident = String(ticket.type).toLowerCase() === 'incident';
       return '<div class="ticket-row" style="animation-delay:' + (index * 35) + 'ms"><span class="ticket-key"><i class="type-icon ' + (isIncident ? 'incident' : '') + '">' + (isIncident ? '!' : '◆') + '</i>' + esc(ticket.key) + '</span><span class="ticket-copy"><span class="ticket-title">' + esc(ticket.summary) + '</span><span class="ticket-updated">Updated ' + esc(ticket.updated) + '</span></span><span class="owner-chip">' + esc(ticket.assignee) + '</span><span class="status-chip">' + esc(ticket.status) + '</span></div>';
     }).join('');
@@ -153,7 +173,7 @@
       .catch(function () { state.alignments = []; state.resourcePage = 0; state.resourceAvailable = false; renderResourceAlignments(); });
   }
   function render(data) {
-    state.data = data; state.tickets = data.openTickets || []; state.page = 0;
+    state.data = data; state.tickets = data.openTickets || []; state.rcaTickets = data.rcaTickets || []; state.page = 0; state.rcaPage = 0; state.queueMode = 'open';
     $('openIncidents').textContent = data.openIncidentCount == null ? '—' : data.openIncidentCount;
     drawSpark(data.openIncidentTrend || []);
     $('sevCount').textContent = data.mode === 'live' ? data.recentSev1.length : '—';
@@ -188,8 +208,8 @@
   window.CVIR_UNAVAILABLE_DATA = {
     mode: 'error', generatedAt: new Date().toISOString(), sev1WindowMinutes: 30, openIncidentCount: null,
     openIncidentTrend: [], recentSev1: [], mttr: { resolvedCount: null, operational: { resolvedCount: null, bySeverity: { sev1: {hours:null}, sev2: {hours:null}, sev3: {hours:null} } }, drishti: { resolvedCount: null, bySeverity: { sev1: {hours:null}, sev2: {hours:null}, sev3: {hours:null} } } },
-    teamOpen: { total: null, incidents: null, other: null }, team: ['Darshita','Heena','Yashy','Shreya','Parveen','Anshul','Nikhil','Rahul Sethi'].map(function (name) { return {name:name,assignedOpen:null,completedOrReviewedToday:null}; }),
-    openTickets: [], windowLabel: 'Live CVIR data unavailable', warnings: ['Dashboard service unavailable · figures are hidden']
+    teamOpen: { total: null, incidents: null, other: null }, team: ['Darshita','Heena','Yashy','Shreya','Parveen','Anshul','Nikhil','Rahul Sethi'].map(function (name) { return {name:name,assignedOpen:null,completedOrReviewedToday:null,rcaInProgress:null}; }),
+    openTickets: [], rcaTickets: [], windowLabel: 'Live CVIR data unavailable', warnings: ['Dashboard service unavailable · figures are hidden']
   };
   $('sevAlertAcknowledge').addEventListener('click', stopSev1Alarm);
   document.addEventListener('keydown', function (event) { var context = getAudioContext(); if (context && context.state === 'suspended') context.resume().catch(function () {}); if (event.key === 'Escape' && !$('sevAlertOverlay').hidden) stopSev1Alarm(); });
@@ -198,8 +218,16 @@
   setInterval(function () { state.countdown -= 1; if (state.countdown <= 0) fetchData(false); var m = Math.floor(state.countdown / 60); var s = state.countdown % 60; $('countdown').textContent = m + ':' + (s < 10 ? '0' : '') + s; }, 1000);
   setInterval(function () {
     var pages = Math.ceil(state.tickets.length / PAGE_SIZE);
+    var rcaPages = Math.ceil(state.rcaTickets.length / PAGE_SIZE);
     var resourcePages = Math.ceil(state.alignments.length / RESOURCE_PAGE_SIZE);
-    if (pages > 1) { state.page = (state.page + 1) % pages; renderQueue(); }
+    if (state.queueMode === 'open') {
+      state.queueMode = 'rca';
+    } else {
+      state.queueMode = 'open';
+      if (pages > 1) state.page = (state.page + 1) % pages;
+      if (rcaPages > 1) state.rcaPage = (state.rcaPage + 1) % rcaPages;
+    }
+    renderQueue();
     if (resourcePages > 1) { state.resourcePage = (state.resourcePage + 1) % resourcePages; renderResourceAlignments(); }
   }, ROTATE_SECONDS * 1000);
   clock(); setInterval(clock, 1000); fetchData(false);

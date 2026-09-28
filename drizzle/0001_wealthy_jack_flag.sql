@@ -1,0 +1,1 @@
+ALTER TABLE `resource_alignments` ADD `completed_at` text;

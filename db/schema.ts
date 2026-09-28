@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const resourceAlignments = sqliteTable("resource_alignments", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -10,4 +10,7 @@ export const resourceAlignments = sqliteTable("resource_alignments", {
   notes: text("notes").notNull().default(""),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-});
+  completedAt: text("completed_at"),
+}, (table) => [
+  index("idx_resource_alignments_completed_at").on(table.completedAt),
+]);

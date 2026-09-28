@@ -27,13 +27,23 @@ function alignmentDatabase(env) {
 }
 async function listResourceAlignments(env) {
   const result = await alignmentDatabase(env).prepare(
-    'SELECT id, activity_type AS activityType, title, resources, schedule, notes, sort_order AS sortOrder, created_at AS createdAt FROM resource_alignments ORDER BY sort_order ASC, id ASC'
+    'SELECT id, activity_type AS activityType, title, resources, schedule, notes, sort_order AS sortOrder, created_at AS createdAt, completed_at AS completedAt FROM resource_alignments WHERE completed_at IS NULL ORDER BY sort_order ASC, id ASC'
+  ).all();
+  return result.results || [];
+}
+async function listCompletedResourceAlignments(env) {
+  const result = await alignmentDatabase(env).prepare(
+    'SELECT id, activity_type AS activityType, title, resources, schedule, notes, sort_order AS sortOrder, created_at AS createdAt, completed_at AS completedAt FROM resource_alignments WHERE completed_at IS NOT NULL ORDER BY completed_at DESC, id DESC'
   ).all();
   return result.results || [];
 }
 async function resourceAlignmentResponse(request, env, url) {
   if (url.pathname === '/api/resource-alignments' && request.method === 'GET') {
-    try { return json({ items: await listResourceAlignments(env) }); }
+    try {
+      const items = await listResourceAlignments(env);
+      if (!managerAuthorized(request, env)) return json({ items });
+      return json({ items, completedItems: await listCompletedResourceAlignments(env) });
+    }
     catch (error) { return json({ items: [], error: String(error.message || error) }, 503); }
   }
   if (url.pathname === '/api/resource-alignments/auth' && request.method === 'GET') {
@@ -57,6 +67,17 @@ async function resourceAlignmentResponse(request, env, url) {
         'INSERT INTO resource_alignments (activity_type, title, resources, schedule, notes, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
       ).bind(activityType, title, resources, schedule, notes, Date.now()).run();
       return json({ ok: true, id: result.meta && result.meta.last_row_id }, 201);
+    } catch (error) { return json({ error: String(error.message || error) }, 503); }
+  }
+  const completeMatch = url.pathname.match(/^\/api\/resource-alignments\/(\d+)\/complete$/);
+  if (completeMatch && request.method === 'POST') {
+    if (!managerAuthorized(request, env)) return json({ error: 'Invalid manager access code' }, 401);
+    try {
+      const result = await alignmentDatabase(env).prepare(
+        'UPDATE resource_alignments SET completed_at = CURRENT_TIMESTAMP WHERE id = ? AND completed_at IS NULL'
+      ).bind(Number(completeMatch[1])).run();
+      if (result.meta && result.meta.changes === 0) return json({ error: 'Active alignment not found' }, 404);
+      return json({ ok: true });
     } catch (error) { return json({ error: String(error.message || error) }, 503); }
   }
   const deleteMatch = url.pathname.match(/^\/api\/resource-alignments\/(\d+)$/);

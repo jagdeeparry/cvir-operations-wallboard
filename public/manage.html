@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#07121c" />
     <title>Resource Alignment Manager</title>
     <meta name="description" content="Manage CVIR resource alignment activities displayed on the operations wallboard." />
-    <link rel="stylesheet" href="/manage.css?v=20260926-rca-followup" />
+    <link rel="stylesheet" href="/manage.css?v=20260928-completed-activities" />
   </head>
   <body>
     <main class="manager-shell">
@@ -42,11 +42,19 @@
         </section>
 
         <section class="panel">
-          <div class="section-heading"><div><p class="eyebrow">Published on TV</p><h2>Current alignments</h2></div><span class="count" id="alignmentCount">0 items</span></div>
-          <div class="manager-list" id="managerList"><div class="empty">Loading alignments…</div></div>
+          <div class="section-heading"><div><p class="eyebrow">Published on TV</p><h2>Current alignments</h2></div><span class="count" id="alignmentCount">0 active</span></div>
+          <p class="section-copy">Mark an activity completed when today's work is finished. It will leave the TV immediately and move to the completed history below.</p>
+          <div class="manager-list" id="managerList"><div class="empty">Loading active alignments…</div></div>
+          <p class="message" id="alignmentMessage" role="status"></p>
+        </section>
+
+        <section class="panel completed-panel">
+          <div class="section-heading"><div><p class="eyebrow completed-eyebrow">Activity history</p><h2>Completed activities</h2></div><span class="count" id="completedCount">0 completed</span></div>
+          <p class="section-copy">Completed items stay here for management reference and are not shown on the TV dashboard.</p>
+          <div class="manager-list" id="completedList"><div class="empty">No completed activities yet.</div></div>
         </section>
       </div>
     </main>
-    <script src="/manage.js?v=20260926-rca-followup"></script>
+    <script src="/manage.js?v=20260928-completed-activities"></script>
   </body>
 </html>

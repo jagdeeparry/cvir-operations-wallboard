@@ -174,12 +174,13 @@
   }
   function render(data) {
     state.data = data; state.tickets = data.openTickets || []; state.rcaTickets = data.rcaTickets || []; state.page = 0; state.rcaPage = 0; state.queueMode = 'open';
+    var openSev1 = Array.isArray(data.openSev1) ? data.openSev1 : [];
     $('openIncidents').textContent = data.openIncidentCount == null ? '—' : data.openIncidentCount;
     drawSpark(data.openIncidentTrend || []);
-    $('sevCount').textContent = data.mode === 'live' ? data.recentSev1.length : '—';
-    $('sevWindow').textContent = 'last ' + data.sev1WindowMinutes + ' min';
-    $('sevCard').classList.toggle('alert', data.recentSev1.length > 0);
-    $('sevMessage').textContent = data.mode !== 'live' ? 'Waiting for live Jira data' : (data.recentSev1.length ? (data.recentSev1[0].key + ' · ' + data.recentSev1[0].summary) : 'No new critical incidents');
+    $('sevCount').textContent = data.mode === 'live' ? openSev1.length : '—';
+    $('sevWindow').textContent = 'excludes Done / RCA';
+    $('sevCard').classList.toggle('alert', openSev1.length > 0);
+    $('sevMessage').textContent = data.mode !== 'live' ? 'Waiting for live Jira data' : (openSev1.length ? (openSev1[0].key + ' · ' + openSev1[0].summary) : 'No open critical incidents');
     renderMttrGroup('operational', data.mttr.operational);
     renderMttrGroup('drishti', data.mttr.drishti);
     $('mttrResolvedLabel').textContent = data.mttr.resolvedCount == null ? 'Live data required' : data.mttr.resolvedCount + ' resolved · Mon → now';
@@ -207,7 +208,7 @@
   }
   window.CVIR_UNAVAILABLE_DATA = {
     mode: 'error', generatedAt: new Date().toISOString(), sev1WindowMinutes: 30, openIncidentCount: null,
-    openIncidentTrend: [], recentSev1: [], mttr: { resolvedCount: null, operational: { resolvedCount: null, bySeverity: { sev1: {hours:null}, sev2: {hours:null}, sev3: {hours:null} } }, drishti: { resolvedCount: null, bySeverity: { sev1: {hours:null}, sev2: {hours:null}, sev3: {hours:null} } } },
+    openIncidentTrend: [], openSev1: [], recentSev1: [], mttr: { resolvedCount: null, operational: { resolvedCount: null, bySeverity: { sev1: {hours:null}, sev2: {hours:null}, sev3: {hours:null} } }, drishti: { resolvedCount: null, bySeverity: { sev1: {hours:null}, sev2: {hours:null}, sev3: {hours:null} } } },
     teamOpen: { total: null, incidents: null, other: null }, team: ['Darshita','Heena','Yashy','Shreya','Parveen','Anshul','Nikhil','Rahul Sethi'].map(function (name) { return {name:name,assignedOpen:null,completedOrReviewedToday:null,rcaInProgress:null}; }),
     openTickets: [], rcaTickets: [], windowLabel: 'Live CVIR data unavailable', warnings: ['Dashboard service unavailable · figures are hidden']
   };

@@ -212,8 +212,9 @@ async function liveDashboard(env) {
   const base = 'project = CVIR';
   const rcaFields = ['summary','issuetype','assignee','status','updated'];
   if (l2InvolvedField) rcaFields.push(l2InvolvedField);
-  const [openIncidents, recentIncidents, inReviewToday, doneToday, rcaToday, openTeam, resolvedWeek, rcaWeek, rcaTeamCandidates] = await Promise.all([
+  const [openIncidents, openSev1Candidates, recentIncidents, inReviewToday, doneToday, rcaToday, openTeam, resolvedWeek, rcaWeek, rcaTeamCandidates] = await Promise.all([
     search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status NOT IN ("In Review", "RCA in Progress")', ['key'], 5000),
+    search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status != "RCA in Progress" ORDER BY created DESC', ['summary','created', sevField || 'priority'], 5000),
     search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status != "RCA in Progress" AND created >= -' + sevMinutes + 'm ORDER BY created DESC', ['summary','created', sevField || 'priority'], 100),
     search(env, base + ' AND status CHANGED TO "In Review" AFTER startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
     search(env, base + ' AND statusCategory = Done AND resolutiondate >= startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
@@ -224,7 +225,9 @@ async function liveDashboard(env) {
     search(env, base + ' AND issuetype = Incident AND status = "RCA in Progress" ORDER BY updated DESC', rcaFields, 5000)
   ]);
   const severityOf = (issue) => sevField ? fieldValue(issue.fields[sevField]) : '';
-  const sev1 = recentIncidents.issues.filter((i) => /sev[- ]?1/i.test(severityOf(i))).map((i) => ({ key: i.key, summary: i.fields.summary }));
+  const sev1Rows = (issues) => issues.filter((i) => /sev[- ]?1/i.test(severityOf(i))).map((i) => ({ key: i.key, summary: i.fields.summary }));
+  const openSev1 = sev1Rows(openSev1Candidates.issues);
+  const recentSev1 = sev1Rows(recentIncidents.issues);
   const uniqueIssues = (groups) => [...new Map(groups.flat().map((issue) => [issue.key, issue])).values()];
   const completedOrReviewedToday = uniqueIssues([doneToday.issues, rcaToday.issues, inReviewToday.issues]);
   const byAccount = (issues, id) => issues.filter((i) => i.fields.assignee && i.fields.assignee.accountId === id).length;
@@ -275,7 +278,7 @@ async function liveDashboard(env) {
   const excludedMttr = completedThisWeek.length - resolvedEntries.length;
   return {
     mode: 'live', generatedAt: new Date().toISOString(), sev1WindowMinutes: sevMinutes, openIncidentCount: openIncidents.total,
-    openIncidentTrend: [42,48,46,54,51,59,57,64,61,68,65,Math.min(92, 40 + openIncidents.total / 2)], recentSev1: sev1,
+    openIncidentTrend: [42,48,46,54,51,59,57,64,61,68,65,Math.min(92, 40 + openIncidents.total / 2)], openSev1, recentSev1,
     mttr: { resolvedCount: times.length, operational: mttrGroup(operationalEntries), drishti: mttrGroup(drishtiEntries) }, teamOpen: { total: issueRows.length, incidents, other: issueRows.length - incidents },
     team, openTickets: issueRows, rcaTickets: rcaRows, windowLabel: 'Asia/Kolkata · Monday ' + monday + ' 00:00 → now',
     warnings: [...(sevField ? [] : ['Jira field INC Severity could not be resolved']), ...(ttrField ? [] : ['Jira field Time to Resolution could not be resolved']), ...(l2InvolvedField ? [] : ['Jira field L2 Involved could not be resolved · RCA matching uses assignee only']), ...(excludedMttr ? [excludedMttr + ' completed incidents excluded from MTTR because resolution time is missing'] : []), ...(unresolved.length ? ['Unresolved Jira member mapping: ' + unresolved.join(', ')] : [])]
@@ -285,7 +288,7 @@ async function liveDashboard(env) {
 function unavailableDashboard(mode, warning) {
   return {
     mode, generatedAt: new Date().toISOString(), sev1WindowMinutes: 30,
-    openIncidentCount: null, openIncidentTrend: [], recentSev1: [],
+    openIncidentCount: null, openIncidentTrend: [], openSev1: [], recentSev1: [],
     mttr: { resolvedCount: null, operational: { resolvedCount: null, bySeverity: { sev1: { hours: null, target: 2 }, sev2: { hours: null, target: 24 }, sev3: { hours: null, target: 72 } } }, drishti: { resolvedCount: null, bySeverity: { sev1: { hours: null, target: 2 }, sev2: { hours: null, target: 24 }, sev3: { hours: null, target: 72 } } } },
     teamOpen: { total: null, incidents: null, other: null },
     team: TEAM_NAMES.map((name) => ({ name, assignedOpen: null, completedOrReviewedToday: null, rcaInProgress: null })),

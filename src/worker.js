@@ -248,8 +248,8 @@ async function liveDashboard(env) {
     search(env, base + ' AND assignee in (' + accountList + ') AND created >= "' + TEAM_LOAD_START + '" AND status IN ' + ACTIVE_ASSIGNED_STATUSES + ' ORDER BY created DESC', ['issuetype','assignee'], 5000),
     search(env, base + ' AND assignee in (' + accountList + ') AND created >= "' + monthStart + '" ORDER BY created DESC', ['issuetype','assignee'], 5000),
     search(env, base + ' AND issuetype = Incident AND assignee in (' + accountList + ') AND created >= "' + TEAM_LOAD_START + '" AND statusCategory != Done AND status != "RCA in Progress" ORDER BY created DESC', ['assignee'], 5000),
-    search(env, base + ' AND issuetype = Incident AND statusCategory = Done AND resolutiondate >= "' + monthStart + '" AND resolutiondate IS NOT EMPTY', mttrFields, 500),
-    search(env, base + ' AND issuetype = Incident AND status = "RCA in Progress" AND status CHANGED TO "RCA in Progress" AFTER "' + monthStart + '"', mttrFields, 500),
+    search(env, base + ' AND issuetype = Incident AND created >= "' + monthStart + '" AND statusCategory = Done AND resolutiondate >= "' + monthStart + '" AND resolutiondate IS NOT EMPTY', mttrFields, 500),
+    search(env, base + ' AND issuetype = Incident AND created >= "' + monthStart + '" AND status = "RCA in Progress" AND status CHANGED TO "RCA in Progress" AFTER "' + monthStart + '"', mttrFields, 500),
     search(env, base + ' AND issuetype = Incident AND status = "RCA in Progress" ORDER BY updated DESC', rcaFields, 5000)
   ]);
   const severityOf = (issue) => sevField ? fieldValue(issue.fields[sevField]) : '';
@@ -294,11 +294,11 @@ async function liveDashboard(env) {
   return {
     mode: 'live', generatedAt: new Date().toISOString(), sev1WindowMinutes: sevMinutes, openIncidentCount: openIncidents.total,
     openIncidentTrend: [42,48,46,54,51,59,57,64,61,68,65,Math.min(92, 40 + openIncidents.total / 2)], openSev1, recentSev1,
-    mttr: { resolvedCount: times.length, periodLabel: monthLabel + ' · Time to Resolution field', operational: mttrGroup(operationalEntries), drishti: mttrGroup(drishtiEntries) },
+    mttr: { resolvedCount: times.length, periodLabel: monthLabel + ' · created + completed', operational: mttrGroup(operationalEntries), drishti: mttrGroup(drishtiEntries) },
     teamOpen: { ...countTypes(openTeam.issues), periodLabel: '15 Apr 2026 → now' },
     monthCreated: { ...countTypes(monthCreated.issues), periodLabel: monthLabel + ' · created' },
     team, openTickets: [], rcaTickets: [], windowLabel: 'Asia/Kolkata · open load from 15 Apr 2026 · monthly metrics from ' + monthStart,
-    warnings: [...(sevField ? [] : ['Jira field INC Severity could not be resolved']), ...(ttrField ? [] : ['Jira field Time to Resolution could not be resolved']), ...(l2InvolvedField ? [] : ['Jira field L2 Involved could not be resolved · RCA matching uses assignee only']), ...(excludedMttr ? [excludedMttr + ' completed incidents excluded from monthly MTTR because Time to Resolution is blank or invalid'] : []), ...(unresolved.length ? ['Unresolved Jira member mapping: ' + unresolved.join(', ')] : [])]
+    warnings: [...(sevField ? [] : ['Jira field INC Severity could not be resolved']), ...(ttrField ? [] : ['Jira field Time to Resolution could not be resolved']), ...(l2InvolvedField ? [] : ['Jira field L2 Involved could not be resolved · RCA matching uses assignee only']), ...(excludedMttr ? [excludedMttr + ' current-month created and completed incidents excluded from monthly MTTR because Time to Resolution is blank or invalid'] : []), ...(unresolved.length ? ['Unresolved Jira member mapping: ' + unresolved.join(', ')] : [])]
   };
 }
 

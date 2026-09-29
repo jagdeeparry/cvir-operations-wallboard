@@ -148,7 +148,7 @@
     $('sevMessage').textContent = data.mode !== 'live' ? 'Waiting for live Jira data' : (openSev1.length ? (openSev1[0].key + ' · ' + openSev1[0].summary) : 'No open critical incidents');
     renderMttrGroup('operational', data.mttr.operational);
     renderMttrGroup('drishti', data.mttr.drishti);
-    $('mttrResolvedLabel').textContent = data.mttr.resolvedCount == null ? 'Live data required' : data.mttr.resolvedCount + ' resolved · ' + (data.mttr.periodLabel || 'month to date');
+    $('mttrResolvedLabel').textContent = data.mttr.resolvedCount == null ? 'Live data required' : data.mttr.resolvedCount + ' created + completed · ' + (data.mttr.periodLabel || 'month to date');
     $('teamOpenTotal').textContent = data.teamOpen.total == null ? '—' : data.teamOpen.total;
     $('teamIncidentTotal').textContent = data.teamOpen.incidents == null ? '—' : data.teamOpen.incidents;
     $('teamOtherTotal').textContent = data.teamOpen.other == null ? '—' : data.teamOpen.other;

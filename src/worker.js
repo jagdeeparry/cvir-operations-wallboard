@@ -2,6 +2,7 @@ const TEAM_NAMES = ['Darshita', 'Heena', 'Yashy', 'Shreya', 'Parveen', 'Anshul',
 const DEFAULT_TEAM_ACCOUNT_IDS = { Darshita: '712020:c8cf55cc-36d0-41a2-936e-be1b0946dadf' };
 const ACTIVE_ASSIGNED_STATUSES = '("In Progress", "in progress (L1)", "in progress (L3)", Open, "in progress (L2)")';
 const DRISHTI_CREATOR = 'Arun Pandey';
+const OPEN_OPERATIONAL_INCIDENT_JQL = 'project = CVIR AND issuetype = Incident AND statusCategory != Done AND status NOT IN ("In Review", "RCA in Progress") AND reporter not in (712020:eb8f8736-d102-4d00-9daa-c25a26740a39)';
 const DEFAULT_SEV1_WINDOW = 30;
 const RESOURCE_ACTIVITY_TYPES = ['SAT', 'FIIT', 'FAT', 'Other'];
 let fieldCache = null;
@@ -233,7 +234,7 @@ async function liveDashboard(env) {
   const mttrFields = ['creator', sevField || 'priority'];
   if (ttrField) mttrFields.push(ttrField);
   const [openIncidents, openSev1Candidates, recentIncidents, inReviewToday, doneToday, rcaToday, openTeam, resolvedMonth, rcaMonth, rcaTeamCandidates] = await Promise.all([
-    search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status NOT IN ("In Review", "RCA in Progress")', ['key'], 5000),
+    search(env, OPEN_OPERATIONAL_INCIDENT_JQL, ['key'], 5000),
     search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status != "RCA in Progress" ORDER BY created DESC', ['summary','created', sevField || 'priority'], 5000),
     search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status != "RCA in Progress" AND created >= -' + sevMinutes + 'm ORDER BY created DESC', ['summary','created', sevField || 'priority'], 100),
     search(env, base + ' AND status CHANGED TO "In Review" AFTER startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),

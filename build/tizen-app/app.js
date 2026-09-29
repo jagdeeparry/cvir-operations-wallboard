@@ -2,13 +2,14 @@
   'use strict';
 
   var REFRESH_SECONDS = 300;
-  var RESOURCE_PAGE_SIZE = 5;
-  var ROTATE_SECONDS = 12;
+  var RESOURCE_SCROLL_INTERVAL = 40;
+  var RESOURCE_SCROLL_PAUSE = 2200;
   var SEEN_SEV1_STORAGE = 'cvir-seen-sev1-keys-v1';
-  var state = { countdown: REFRESH_SECONDS, resourcePage: 0, alignments: [], resourceAvailable: true, data: null, busy: false, logoTimer: null };
+  var state = { countdown: REFRESH_SECONDS, alignments: [], resourceAvailable: true, resourceScrollDirection: 1, resourceScrollPauseUntil: 0, resourceScrollPaused: false, data: null, busy: false, logoTimer: null };
   var audioContext = null;
   var alarmTimer = null;
   var alarmAutoCloseTimer = null;
+  var resourceScrollTimer = null;
   var apiMeta = document.querySelector('meta[name="cvir-api-base"]');
   var apiBase = apiMeta && apiMeta.content ? apiMeta.content.replace(/\/$/, '') : '';
 
@@ -117,25 +118,44 @@
       $('resourcePagerDots').innerHTML = '';
       return;
     }
-    var pages = Math.ceil(items.length / RESOURCE_PAGE_SIZE);
-    if (state.resourcePage >= pages) state.resourcePage = 0;
-    var start = state.resourcePage * RESOURCE_PAGE_SIZE;
-    var slice = items.slice(start, start + RESOURCE_PAGE_SIZE);
-    $('resourceRange').textContent = (start + 1) + '–' + Math.min(start + RESOURCE_PAGE_SIZE, items.length) + ' of ' + items.length;
-    $('resourcePagerDots').innerHTML = Array.apply(null, Array(Math.min(pages, 8))).map(function (_, index) { return '<i class="' + (index === state.resourcePage ? 'active' : '') + '"></i>'; }).join('');
-    $('resourceList').innerHTML = slice.map(function (item, index) {
+    $('resourceRange').textContent = items.length + (items.length === 1 ? ' activity' : ' activities') + ' · auto-scroll';
+    $('resourcePagerDots').innerHTML = '<i class="active"></i>';
+    $('resourceList').innerHTML = items.map(function (item, index) {
       var badgeClass = String(item.activityType || 'Other').toLowerCase();
       var meta = [];
       if (item.schedule) meta.push('<span>' + esc(item.schedule) + '</span>');
       if (item.notes) meta.push('<span>' + esc(item.notes) + '</span>');
       return '<div class="alignment-row" style="animation-delay:' + (index * 40) + 'ms"><span class="alignment-badge ' + esc(badgeClass) + '">' + esc(item.activityType || 'Other') + '</span><span class="alignment-copy"><span class="alignment-title">' + esc(item.title) + '</span><span class="alignment-resources">' + esc(item.resources) + '</span>' + (meta.length ? '<span class="alignment-meta">' + meta.join('') + '</span>' : '') + '</span></div>';
     }).join('');
+    var list = $('resourceList');
+    list.scrollTop = 0;
+    state.resourceScrollDirection = 1;
+    state.resourceScrollPauseUntil = Date.now() + RESOURCE_SCROLL_PAUSE;
+  }
+  function startResourceAutoScroll() {
+    if (resourceScrollTimer) clearInterval(resourceScrollTimer);
+    resourceScrollTimer = setInterval(function () {
+      var list = $('resourceList');
+      if (!list || state.resourceScrollPaused || Date.now() < state.resourceScrollPauseUntil) return;
+      var maximum = list.scrollHeight - list.clientHeight;
+      if (maximum <= 1) return;
+      list.scrollTop += state.resourceScrollDirection;
+      if (list.scrollTop >= maximum - 1) {
+        list.scrollTop = maximum;
+        state.resourceScrollDirection = -1;
+        state.resourceScrollPauseUntil = Date.now() + RESOURCE_SCROLL_PAUSE;
+      } else if (list.scrollTop <= 1) {
+        list.scrollTop = 0;
+        state.resourceScrollDirection = 1;
+        state.resourceScrollPauseUntil = Date.now() + RESOURCE_SCROLL_PAUSE;
+      }
+    }, RESOURCE_SCROLL_INTERVAL);
   }
   function fetchResourceAlignments() {
     return fetch(apiBase + '/api/resource-alignments', { cache: 'no-store', headers: { 'Accept': 'application/json' } })
       .then(function (response) { if (!response.ok) throw new Error('Resource service returned ' + response.status); return response.json(); })
-      .then(function (data) { state.alignments = Array.isArray(data.items) ? data.items : []; state.resourcePage = 0; state.resourceAvailable = true; renderResourceAlignments(); })
-      .catch(function () { state.alignments = []; state.resourcePage = 0; state.resourceAvailable = false; renderResourceAlignments(); });
+      .then(function (data) { state.alignments = Array.isArray(data.items) ? data.items : []; state.resourceAvailable = true; renderResourceAlignments(); })
+      .catch(function () { state.alignments = []; state.resourceAvailable = false; renderResourceAlignments(); });
   }
   function render(data) {
     state.data = data;
@@ -148,7 +168,7 @@
     $('sevMessage').textContent = data.mode !== 'live' ? 'Waiting for live Jira data' : (openSev1.length ? (openSev1[0].key + ' · ' + openSev1[0].summary) : 'No open critical incidents');
     renderMttrGroup('operational', data.mttr.operational);
     renderMttrGroup('drishti', data.mttr.drishti);
-    $('mttrResolvedLabel').textContent = data.mttr.resolvedCount == null ? 'Live data required' : data.mttr.resolvedCount + ' resolved · ' + (data.mttr.periodLabel || 'month to date');
+    $('mttrResolvedLabel').textContent = data.mttr.resolvedCount == null ? 'Live data required' : data.mttr.resolvedCount + ' created + completed · ' + (data.mttr.periodLabel || 'month to date');
     $('teamOpenTotal').textContent = data.teamOpen.total == null ? '—' : data.teamOpen.total;
     $('teamIncidentTotal').textContent = data.teamOpen.incidents == null ? '—' : data.teamOpen.incidents;
     $('teamOtherTotal').textContent = data.teamOpen.other == null ? '—' : data.teamOpen.other;
@@ -193,9 +213,10 @@
   document.addEventListener('pointerdown', function () { var context = getAudioContext(); if (context && context.state === 'suspended') context.resume().catch(function () {}); }, { once: true });
   $('refreshButton').addEventListener('click', function () { fetchData(true); });
   setInterval(function () { state.countdown -= 1; if (state.countdown <= 0) fetchData(false); var m = Math.floor(state.countdown / 60); var s = state.countdown % 60; $('countdown').textContent = m + ':' + (s < 10 ? '0' : '') + s; }, 1000);
-  setInterval(function () {
-    var resourcePages = Math.ceil(state.alignments.length / RESOURCE_PAGE_SIZE);
-    if (resourcePages > 1) { state.resourcePage = (state.resourcePage + 1) % resourcePages; renderResourceAlignments(); }
-  }, ROTATE_SECONDS * 1000);
+  $('resourceList').addEventListener('pointerenter', function () { state.resourceScrollPaused = true; });
+  $('resourceList').addEventListener('pointerleave', function () { state.resourceScrollPaused = false; state.resourceScrollPauseUntil = Date.now() + 900; });
+  $('resourceList').addEventListener('focusin', function () { state.resourceScrollPaused = true; });
+  $('resourceList').addEventListener('focusout', function () { state.resourceScrollPaused = false; state.resourceScrollPauseUntil = Date.now() + 900; });
+  startResourceAutoScroll();
   clock(); setInterval(clock, 1000); fetchData(false);
 }());

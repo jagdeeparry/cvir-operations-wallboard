@@ -1,4 +1,4 @@
-# CVIR Operations Wallboard
+# System Support Stats Wallboard
 
 A read-only, television-first dashboard for the Jira `CVIR` project. It refreshes every five minutes and shows:
 

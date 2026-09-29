@@ -4,7 +4,7 @@
   <content src="index.html"/>
   <feature name="http://tizen.org/feature/screen.size.all"/>
   <icon src="icon.svg"/>
-  <name>CVIR Operations</name>
+  <name>System Support Stats</name>
   <tizen:profile name="tv-samsung"/>
   <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable" encryption="disable" install-location="auto" hwkey-event="enable"/>
   <tizen:privilege name="http://tizen.org/privilege/internet"/>

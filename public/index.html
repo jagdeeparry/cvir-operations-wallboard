@@ -8,13 +8,13 @@
     <title>CVIR Operations Wallboard</title>
     <meta name="description" content="Live five-minute CVIR incident and team operations wallboard." />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307111c'/%3E%3Cpath d='M14 42V22h8v20zm14 0V14h8v28zm14 0V28h8v14z' fill='%233be4bf'/%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="/styles.css?v=20260928-open-sev1" />
+    <link rel="stylesheet" href="/styles.css?v=20260929-monthly-mttr" />
   </head>
   <body>
     <main class="shell" aria-live="polite">
       <header class="topbar">
         <div class="brand">
-          <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+          <img class="kimbal-logo" id="kimbalRefreshLogo" src="/kimbal-logo.png" alt="Kimbal — Efficient Energy Everywhere" />
           <div>
             <p class="eyebrow">Unified Customer Board</p>
             <h1>CVIR operations</h1>
@@ -49,7 +49,7 @@
         </article>
 
         <article class="card mttr-card">
-          <div class="card-label"><span>Weekly MTTR split</span><span id="mttrResolvedLabel">Mon → now</span></div>
+          <div class="card-label"><span>Monthly MTTR split</span><span id="mttrResolvedLabel">Month to date</span></div>
           <div class="mttr-groups">
             <section class="mttr-group" aria-label="Operational MTTR">
               <div class="mttr-group-heading"><strong>Operational</strong><span id="operationalMttrCount">— incidents</span></div>
@@ -107,7 +107,7 @@
       </section>
 
       <footer>
-        <div><span class="footer-label">DATA WINDOW</span><span id="dataWindow">Asia/Kolkata · Monday 00:00 → now</span></div>
+        <div><span class="footer-label">DATA WINDOW</span><span id="dataWindow">Asia/Kolkata · current month → now</span></div>
         <div class="footer-center" id="warningText">Read-only dashboard</div>
         <div><span class="footer-label">LAST SYNC</span><span id="lastSync">Waiting…</span></div>
       </footer>
@@ -124,6 +124,6 @@
         <button class="sev-alert-action" id="sevAlertAcknowledge" type="button">Acknowledge</button>
       </div>
     </div>
-    <script src="/app.js?v=20260928-open-sev1"></script>
+    <script src="/app.js?v=20260929-monthly-mttr"></script>
   </body>
 </html>

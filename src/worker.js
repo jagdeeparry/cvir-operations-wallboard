@@ -1,4 +1,4 @@
-const TEAM_NAMES = ['Darshita', 'Heena', 'Yashy', 'Shreya', 'Parveen', 'Anshul', 'Nikhil', 'Rahul Sethi'];
+const TEAM_NAMES = ['Darshita', 'Heena', 'Yashy', 'Shreya', 'Parveen', 'Anshul', 'Nikhil', 'Rahul Sethi', 'Shiva Sharma'];
 const DEFAULT_TEAM_ACCOUNT_IDS = { Darshita: '712020:c8cf55cc-36d0-41a2-936e-be1b0946dadf' };
 const ACTIVE_ASSIGNED_STATUSES = '("In Progress", "in progress (L1)", "in progress (L3)", Open, "in progress (L2)")';
 const DRISHTI_CREATOR = 'Arun Pandey';
@@ -206,15 +206,11 @@ async function resolveUsers(env) {
   userCache = { value: resolved, expires: Date.now() + 60 * 60 * 1000 };
   return resolved;
 }
-function mondayISO(now = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }).formatToParts(now);
+export function monthStartISO(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit' }).formatToParts(now);
   const get = (type) => parts.find((x) => x.type === type).value;
-  const dayMap = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
-  const local = new Date(get('year') + '-' + get('month') + '-' + get('day') + 'T00:00:00+05:30');
-  local.setUTCDate(local.getUTCDate() - dayMap[get('weekday')]);
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(local);
+  return get('year') + '-' + get('month') + '-01';
 }
-function hoursBetween(a, b) { return (new Date(b).getTime() - new Date(a).getTime()) / 3600000; }
 function median(values) { if (!values.length) return null; const sorted = values.slice().sort((a,b) => a-b); const m = Math.floor(sorted.length / 2); return sorted.length % 2 ? sorted[m] : (sorted[m-1] + sorted[m]) / 2; }
 function ago(iso) { const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); if (mins < 60) return mins + ' min ago'; const hrs = Math.round(mins / 60); return hrs < 24 ? hrs + 'h ago' : Math.round(hrs / 24) + 'd ago'; }
 
@@ -228,12 +224,15 @@ async function liveDashboard(env) {
   const unresolved = users.filter((u) => !u.accountId).map((u) => u.name);
   if (!validUsers.length) throw new Error('No dashboard team members could be resolved in Jira');
   const accountList = validUsers.map((u) => '"' + u.accountId.replace(/"/g, '') + '"').join(',');
-  const monday = mondayISO();
+  const monthStart = monthStartISO();
+  const monthLabel = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', year: 'numeric' }).format(new Date());
   const sevMinutes = Number(env.SEV1_RECENT_MINUTES || DEFAULT_SEV1_WINDOW);
   const base = 'project = CVIR';
   const rcaFields = ['summary','issuetype','assignee','status','updated'];
   if (l2InvolvedField) rcaFields.push(l2InvolvedField);
-  const [openIncidents, openSev1Candidates, recentIncidents, inReviewToday, doneToday, rcaToday, openTeam, resolvedWeek, rcaWeek, rcaTeamCandidates] = await Promise.all([
+  const mttrFields = ['creator', sevField || 'priority'];
+  if (ttrField) mttrFields.push(ttrField);
+  const [openIncidents, openSev1Candidates, recentIncidents, inReviewToday, doneToday, rcaToday, openTeam, resolvedMonth, rcaMonth, rcaTeamCandidates] = await Promise.all([
     search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status NOT IN ("In Review", "RCA in Progress")', ['key'], 5000),
     search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status != "RCA in Progress" ORDER BY created DESC', ['summary','created', sevField || 'priority'], 5000),
     search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status != "RCA in Progress" AND created >= -' + sevMinutes + 'm ORDER BY created DESC', ['summary','created', sevField || 'priority'], 100),
@@ -241,8 +240,8 @@ async function liveDashboard(env) {
     search(env, base + ' AND statusCategory = Done AND resolutiondate >= startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
     search(env, base + ' AND issuetype = Incident AND status = "RCA in Progress" AND status CHANGED TO "RCA in Progress" AFTER startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
     search(env, base + ' AND assignee in (' + accountList + ') AND status IN ' + ACTIVE_ASSIGNED_STATUSES + ' ORDER BY created DESC', ['summary','issuetype','assignee','status','updated'], 5000),
-    search(env, base + ' AND issuetype = Incident AND statusCategory = Done AND resolutiondate >= "' + monday + '" AND resolutiondate IS NOT EMPTY', ['created','creator','resolutiondate', sevField || 'priority', ttrField || 'updated'], 500),
-    search(env, base + ' AND issuetype = Incident AND status = "RCA in Progress" AND status CHANGED TO "RCA in Progress" AFTER "' + monday + '"', ['created','creator','resolutiondate', sevField || 'priority', ttrField || 'updated'], 500),
+    search(env, base + ' AND issuetype = Incident AND statusCategory = Done AND resolutiondate >= "' + monthStart + '" AND resolutiondate IS NOT EMPTY', mttrFields, 500),
+    search(env, base + ' AND issuetype = Incident AND status = "RCA in Progress" AND status CHANGED TO "RCA in Progress" AFTER "' + monthStart + '"', mttrFields, 500),
     search(env, base + ' AND issuetype = Incident AND status = "RCA in Progress" ORDER BY updated DESC', rcaFields, 5000)
   ]);
   const severityOf = (issue) => sevField ? fieldValue(issue.fields[sevField]) : '';
@@ -264,13 +263,12 @@ async function liveDashboard(env) {
     completedOrReviewedToday: u.accountId ? byAccount(completedOrReviewedToday, u.accountId) : 0,
     rcaInProgress: teamRcaIssues.filter((issue) => rcaMatchesFor(issue, u).matched).length
   }));
-  const completedThisWeek = uniqueIssues([resolvedWeek.issues, rcaWeek.issues]);
+  const completedThisMonth = uniqueIssues([resolvedMonth.issues, rcaMonth.issues]);
   const resolutionHours = (issue) => {
     const ttrSeconds = ttrField ? durationSeconds(issue.fields[ttrField]) : null;
-    if (ttrSeconds != null) return ttrSeconds / 3600;
-    return issue.fields.resolutiondate ? hoursBetween(issue.fields.created, issue.fields.resolutiondate) : null;
+    return ttrSeconds == null ? null : ttrSeconds / 3600;
   };
-  const resolvedEntries = completedThisWeek.map((i) => ({ hours: resolutionHours(i), severity: severityOf(i), creator: fieldValue(i.fields.creator) })).filter((x) => Number.isFinite(x.hours) && x.hours >= 0);
+  const resolvedEntries = completedThisMonth.map((i) => ({ hours: resolutionHours(i), severity: severityOf(i), creator: fieldValue(i.fields.creator) })).filter((x) => Number.isFinite(x.hours) && x.hours >= 0);
   const times = resolvedEntries.map((x) => x.hours);
   const mttrEntry = (values, target) => ({ hours: values.length ? values.reduce((a,b) => a+b, 0) / values.length : null, medianHours: median(values), count: values.length, target });
   const mttrGroup = (entries) => {
@@ -296,13 +294,13 @@ async function liveDashboard(env) {
     };
   });
   const incidents = issueRows.filter((i) => String(i.type).toLowerCase() === 'incident').length;
-  const excludedMttr = completedThisWeek.length - resolvedEntries.length;
+  const excludedMttr = completedThisMonth.length - resolvedEntries.length;
   return {
     mode: 'live', generatedAt: new Date().toISOString(), sev1WindowMinutes: sevMinutes, openIncidentCount: openIncidents.total,
     openIncidentTrend: [42,48,46,54,51,59,57,64,61,68,65,Math.min(92, 40 + openIncidents.total / 2)], openSev1, recentSev1,
-    mttr: { resolvedCount: times.length, operational: mttrGroup(operationalEntries), drishti: mttrGroup(drishtiEntries) }, teamOpen: { total: issueRows.length, incidents, other: issueRows.length - incidents },
-    team, openTickets: issueRows, rcaTickets: rcaRows, windowLabel: 'Asia/Kolkata · Monday ' + monday + ' 00:00 → now',
-    warnings: [...(sevField ? [] : ['Jira field INC Severity could not be resolved']), ...(ttrField ? [] : ['Jira field Time to Resolution could not be resolved']), ...(l2InvolvedField ? [] : ['Jira field L2 Involved could not be resolved · RCA matching uses assignee only']), ...(excludedMttr ? [excludedMttr + ' completed incidents excluded from MTTR because resolution time is missing'] : []), ...(unresolved.length ? ['Unresolved Jira member mapping: ' + unresolved.join(', ')] : [])]
+    mttr: { resolvedCount: times.length, periodLabel: monthLabel + ' · month to date', operational: mttrGroup(operationalEntries), drishti: mttrGroup(drishtiEntries) }, teamOpen: { total: issueRows.length, incidents, other: issueRows.length - incidents },
+    team, openTickets: issueRows, rcaTickets: rcaRows, windowLabel: 'Asia/Kolkata · Month ' + monthStart + ' 00:00 → now',
+    warnings: [...(sevField ? [] : ['Jira field INC Severity could not be resolved']), ...(ttrField ? [] : ['Jira field Time to Resolution could not be resolved']), ...(l2InvolvedField ? [] : ['Jira field L2 Involved could not be resolved · RCA matching uses assignee only']), ...(excludedMttr ? [excludedMttr + ' completed incidents excluded from monthly MTTR because Time to Resolution is blank or invalid'] : []), ...(unresolved.length ? ['Unresolved Jira member mapping: ' + unresolved.join(', ')] : [])]
   };
 }
 
@@ -310,7 +308,7 @@ function unavailableDashboard(mode, warning) {
   return {
     mode, generatedAt: new Date().toISOString(), sev1WindowMinutes: 30,
     openIncidentCount: null, openIncidentTrend: [], openSev1: [], recentSev1: [],
-    mttr: { resolvedCount: null, operational: { resolvedCount: null, bySeverity: { sev1: { hours: null, target: 2 }, sev2: { hours: null, target: 24 }, sev3: { hours: null, target: 72 } } }, drishti: { resolvedCount: null, bySeverity: { sev1: { hours: null, target: 2 }, sev2: { hours: null, target: 24 }, sev3: { hours: null, target: 72 } } } },
+    mttr: { resolvedCount: null, periodLabel: 'Month to date', operational: { resolvedCount: null, bySeverity: { sev1: { hours: null, target: 2 }, sev2: { hours: null, target: 24 }, sev3: { hours: null, target: 72 } } }, drishti: { resolvedCount: null, bySeverity: { sev1: { hours: null, target: 2 }, sev2: { hours: null, target: 24 }, sev3: { hours: null, target: 72 } } } },
     teamOpen: { total: null, incidents: null, other: null },
     team: TEAM_NAMES.map((name) => ({ name, assignedOpen: null, completedOrReviewedToday: null, rcaInProgress: null })),
     openTickets: [], rcaTickets: [], windowLabel: 'Live CVIR data unavailable', warnings: [warning]
@@ -327,6 +325,11 @@ export default {
     }
     if (url.pathname === '/app.js') {
       return new Response(__APP_JS__, { headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff' } });
+    }
+    if (url.pathname === '/kimbal-logo.png') {
+      const binary = atob(__KIMBAL_LOGO_BASE64__);
+      const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+      return new Response(bytes, { headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=86400', 'x-content-type-options': 'nosniff' } });
     }
     if (url.pathname === '/manage.css') {
       return new Response(__MANAGE_CSS__, { headers: { 'content-type': 'text/css; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff' } });

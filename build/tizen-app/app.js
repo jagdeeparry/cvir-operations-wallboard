@@ -6,7 +6,7 @@
   var RESOURCE_PAGE_SIZE = 5;
   var ROTATE_SECONDS = 12;
   var SEEN_SEV1_STORAGE = 'cvir-seen-sev1-keys-v1';
-  var state = { countdown: REFRESH_SECONDS, page: 0, rcaPage: 0, queueMode: 'open', resourcePage: 0, tickets: [], rcaTickets: [], alignments: [], resourceAvailable: true, data: null, busy: false };
+  var state = { countdown: REFRESH_SECONDS, page: 0, rcaPage: 0, queueMode: 'open', resourcePage: 0, tickets: [], rcaTickets: [], alignments: [], resourceAvailable: true, data: null, busy: false, logoTimer: null };
   var audioContext = null;
   var alarmTimer = null;
   var alarmAutoCloseTimer = null;
@@ -183,7 +183,7 @@
     $('sevMessage').textContent = data.mode !== 'live' ? 'Waiting for live Jira data' : (openSev1.length ? (openSev1[0].key + ' · ' + openSev1[0].summary) : 'No open critical incidents');
     renderMttrGroup('operational', data.mttr.operational);
     renderMttrGroup('drishti', data.mttr.drishti);
-    $('mttrResolvedLabel').textContent = data.mttr.resolvedCount == null ? 'Live data required' : data.mttr.resolvedCount + ' resolved · Mon → now';
+    $('mttrResolvedLabel').textContent = data.mttr.resolvedCount == null ? 'Live data required' : data.mttr.resolvedCount + ' resolved · ' + (data.mttr.periodLabel || 'month to date');
     $('teamOpenTotal').textContent = data.teamOpen.total == null ? '—' : data.teamOpen.total;
     $('teamIncidentTotal').textContent = data.teamOpen.incidents == null ? '—' : data.teamOpen.incidents;
     $('teamOtherTotal').textContent = data.teamOpen.other == null ? '—' : data.teamOpen.other;
@@ -199,17 +199,24 @@
   function fetchData(manual) {
     if (state.busy) return;
     state.busy = true; $('refreshButton').classList.add('loading');
-    fetchResourceAlignments();
-    fetch(apiBase + '/api/dashboard', { cache: 'no-store', headers: { 'Accept': 'application/json' } })
+    if (state.logoTimer) clearTimeout(state.logoTimer);
+    $('kimbalRefreshLogo').classList.remove('is-refreshing');
+    void $('kimbalRefreshLogo').offsetWidth;
+    $('kimbalRefreshLogo').classList.add('is-refreshing');
+    var alignmentsRequest = fetchResourceAlignments();
+    var dashboardRequest = fetch(apiBase + '/api/dashboard', { cache: 'no-store', headers: { 'Accept': 'application/json' } })
       .then(function (r) { if (!r.ok) throw new Error('Dashboard service returned ' + r.status); return r.json(); })
       .then(function (data) { render(data); handleNewSev1(data); state.countdown = REFRESH_SECONDS; if (manual) toast(data.mode === 'live' ? 'Live Jira data refreshed' : 'Live Jira data unavailable'); })
-      .catch(function () { render(window.CVIR_UNAVAILABLE_DATA); state.countdown = REFRESH_SECONDS; if (manual) toast('Dashboard service unavailable'); })
-      .then(function () { state.busy = false; $('refreshButton').classList.remove('loading'); });
+      .catch(function () { render(window.CVIR_UNAVAILABLE_DATA); state.countdown = REFRESH_SECONDS; if (manual) toast('Dashboard service unavailable'); });
+    Promise.all([alignmentsRequest, dashboardRequest]).then(function () {
+      state.busy = false; $('refreshButton').classList.remove('loading');
+      state.logoTimer = setTimeout(function () { $('kimbalRefreshLogo').classList.remove('is-refreshing'); state.logoTimer = null; }, 1300);
+    });
   }
   window.CVIR_UNAVAILABLE_DATA = {
     mode: 'error', generatedAt: new Date().toISOString(), sev1WindowMinutes: 30, openIncidentCount: null,
-    openIncidentTrend: [], openSev1: [], recentSev1: [], mttr: { resolvedCount: null, operational: { resolvedCount: null, bySeverity: { sev1: {hours:null}, sev2: {hours:null}, sev3: {hours:null} } }, drishti: { resolvedCount: null, bySeverity: { sev1: {hours:null}, sev2: {hours:null}, sev3: {hours:null} } } },
-    teamOpen: { total: null, incidents: null, other: null }, team: ['Darshita','Heena','Yashy','Shreya','Parveen','Anshul','Nikhil','Rahul Sethi'].map(function (name) { return {name:name,assignedOpen:null,completedOrReviewedToday:null,rcaInProgress:null}; }),
+    openIncidentTrend: [], openSev1: [], recentSev1: [], mttr: { resolvedCount: null, periodLabel: 'Month to date', operational: { resolvedCount: null, bySeverity: { sev1: {hours:null}, sev2: {hours:null}, sev3: {hours:null} } }, drishti: { resolvedCount: null, bySeverity: { sev1: {hours:null}, sev2: {hours:null}, sev3: {hours:null} } } },
+    teamOpen: { total: null, incidents: null, other: null }, team: ['Darshita','Heena','Yashy','Shreya','Parveen','Anshul','Nikhil','Rahul Sethi','Shiva Sharma'].map(function (name) { return {name:name,assignedOpen:null,completedOrReviewedToday:null,rcaInProgress:null}; }),
     openTickets: [], rcaTickets: [], windowLabel: 'Live CVIR data unavailable', warnings: ['Dashboard service unavailable · figures are hidden']
   };
   $('sevAlertAcknowledge').addEventListener('click', stopSev1Alarm);

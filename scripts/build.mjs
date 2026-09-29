@@ -4,13 +4,14 @@ const root = path.resolve(import.meta.dirname, '..');
 const dist = path.join(root, 'dist');
 await rm(dist, { recursive: true, force: true });
 await mkdir(path.join(dist, 'server'), { recursive: true });
-const html = await readFile(path.join(root, 'public/index.html'), 'utf8');
+const rawHtml = await readFile(path.join(root, 'public/index.html'), 'utf8');
 const css = await readFile(path.join(root, 'public/styles.css'), 'utf8');
 const js = await readFile(path.join(root, 'public/app.js'), 'utf8');
 const manageHtml = await readFile(path.join(root, 'public/manage.html'), 'utf8');
 const manageCss = await readFile(path.join(root, 'public/manage.css'), 'utf8');
 const manageJs = await readFile(path.join(root, 'public/manage.js'), 'utf8');
 const kimbalLogoBase64 = (await readFile(path.join(root, 'public/kimbal-logo.base64'), 'utf8')).trim();
+const html = rawHtml.replace('src="/kimbal-logo.png"', 'src="data:image/png;base64,' + kimbalLogoBase64 + '"');
 const worker = await readFile(path.join(root, 'src/worker.js'), 'utf8');
 const assets = [
   'const __INDEX_HTML__ = ' + JSON.stringify(html) + ';',

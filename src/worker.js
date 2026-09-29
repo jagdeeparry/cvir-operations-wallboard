@@ -2,6 +2,7 @@ const TEAM_NAMES = ['Darshita', 'Heena', 'Yashy', 'Shreya', 'Parveen', 'Anshul',
 const DEFAULT_TEAM_ACCOUNT_IDS = { Darshita: '712020:c8cf55cc-36d0-41a2-936e-be1b0946dadf' };
 const ACTIVE_ASSIGNED_STATUSES = '("In Progress", "in progress (L1)", "in progress (L3)", Open, "in progress (L2)")';
 const DRISHTI_CREATOR = 'Arun Pandey';
+const TEAM_LOAD_START = '2026-04-15';
 const OPEN_OPERATIONAL_INCIDENT_JQL = 'project = CVIR AND issuetype = Incident AND statusCategory != Done AND status NOT IN ("In Review", "RCA in Progress") AND reporter not in (712020:eb8f8736-d102-4d00-9daa-c25a26740a39)';
 const DEFAULT_SEV1_WINDOW = 30;
 const RESOURCE_ACTIVITY_TYPES = ['SAT', 'FIIT', 'FAT', 'Other'];
@@ -157,6 +158,10 @@ async function fields(env) {
   const all = await jira(env, '/rest/api/3/field');
   const map = {};
   all.forEach((f) => { map[String(f.name).trim().toLowerCase()] = f.id; });
+  const timeToResolution = all.find((f) => String(f.name) === 'Time to Resolution ')
+    || all.find((f) => String(f.name).trim().toLowerCase() === 'time to resolution' && f.schema && f.schema.type === 'number' && f.custom)
+    || all.find((f) => String(f.name).trim().toLowerCase() === 'time to resolution');
+  if (timeToResolution) map['time to resolution'] = timeToResolution.id;
   fieldCache = { value: map, expires: Date.now() + 60 * 60 * 1000 };
   return map;
 }
@@ -233,14 +238,16 @@ async function liveDashboard(env) {
   if (l2InvolvedField) rcaFields.push(l2InvolvedField);
   const mttrFields = ['creator', sevField || 'priority'];
   if (ttrField) mttrFields.push(ttrField);
-  const [openIncidents, openSev1Candidates, recentIncidents, inReviewToday, doneToday, rcaToday, openTeam, resolvedMonth, rcaMonth, rcaTeamCandidates] = await Promise.all([
+  const [openIncidents, openSev1Candidates, recentIncidents, inReviewToday, doneToday, rcaToday, openTeam, monthCreated, pendingTeamIncidents, resolvedMonth, rcaMonth, rcaTeamCandidates] = await Promise.all([
     search(env, OPEN_OPERATIONAL_INCIDENT_JQL, ['key'], 5000),
     search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status != "RCA in Progress" ORDER BY created DESC', ['summary','created', sevField || 'priority'], 5000),
     search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status != "RCA in Progress" AND created >= -' + sevMinutes + 'm ORDER BY created DESC', ['summary','created', sevField || 'priority'], 100),
     search(env, base + ' AND status CHANGED TO "In Review" AFTER startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
     search(env, base + ' AND statusCategory = Done AND resolutiondate >= startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
     search(env, base + ' AND issuetype = Incident AND status = "RCA in Progress" AND status CHANGED TO "RCA in Progress" AFTER startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
-    search(env, base + ' AND assignee in (' + accountList + ') AND status IN ' + ACTIVE_ASSIGNED_STATUSES + ' ORDER BY created DESC', ['summary','issuetype','assignee','status','updated'], 5000),
+    search(env, base + ' AND assignee in (' + accountList + ') AND created >= "' + TEAM_LOAD_START + '" AND status IN ' + ACTIVE_ASSIGNED_STATUSES + ' ORDER BY created DESC', ['issuetype','assignee'], 5000),
+    search(env, base + ' AND assignee in (' + accountList + ') AND created >= "' + monthStart + '" ORDER BY created DESC', ['issuetype','assignee'], 5000),
+    search(env, base + ' AND issuetype = Incident AND assignee in (' + accountList + ') AND created >= "' + TEAM_LOAD_START + '" AND statusCategory != Done AND status != "RCA in Progress" ORDER BY created DESC', ['assignee'], 5000),
     search(env, base + ' AND issuetype = Incident AND statusCategory = Done AND resolutiondate >= "' + monthStart + '" AND resolutiondate IS NOT EMPTY', mttrFields, 500),
     search(env, base + ' AND issuetype = Incident AND status = "RCA in Progress" AND status CHANGED TO "RCA in Progress" AFTER "' + monthStart + '"', mttrFields, 500),
     search(env, base + ' AND issuetype = Incident AND status = "RCA in Progress" ORDER BY updated DESC', rcaFields, 5000)
@@ -261,6 +268,7 @@ async function liveDashboard(env) {
   const team = users.map((u) => ({
     name: u.name,
     assignedOpen: u.accountId ? byAccount(openTeam.issues, u.accountId) : 0,
+    pendingIncidents: u.accountId ? byAccount(pendingTeamIncidents.issues, u.accountId) : 0,
     completedOrReviewedToday: u.accountId ? byAccount(completedOrReviewedToday, u.accountId) : 0,
     rcaInProgress: teamRcaIssues.filter((issue) => rcaMatchesFor(issue, u).matched).length
   }));
@@ -278,29 +286,18 @@ async function liveDashboard(env) {
   };
   const drishtiEntries = resolvedEntries.filter((x) => normalize(x.creator) === normalize(DRISHTI_CREATOR));
   const operationalEntries = resolvedEntries.filter((x) => normalize(x.creator) !== normalize(DRISHTI_CREATOR));
-  const issueRows = openTeam.issues.map((i) => ({ key: i.key, summary: i.fields.summary, type: i.fields.issuetype && i.fields.issuetype.name, assignee: i.fields.assignee && i.fields.assignee.displayName, status: i.fields.status && i.fields.status.name, updated: ago(i.fields.updated) }));
-  const rcaRows = teamRcaIssues.map((issue) => {
-    const memberMatches = users.map((user) => ({ user, ...rcaMatchesFor(issue, user) })).filter((entry) => entry.matched);
-    const assigneeMembers = memberMatches.filter((entry) => entry.assigneeMatch).map((entry) => entry.user.name);
-    const l2Members = memberMatches.filter((entry) => entry.l2Match).map((entry) => entry.user.name);
-    return {
-      key: issue.key,
-      summary: issue.fields.summary,
-      assignee: issue.fields.assignee && issue.fields.assignee.displayName,
-      matchedMembers: memberMatches.map((entry) => entry.user.name),
-      assigneeMembers,
-      l2Members,
-      status: issue.fields.status && issue.fields.status.name,
-      updated: ago(issue.fields.updated)
-    };
-  });
-  const incidents = issueRows.filter((i) => String(i.type).toLowerCase() === 'incident').length;
+  const countTypes = (issues) => {
+    const incidents = issues.filter((issue) => String(issue.fields.issuetype && issue.fields.issuetype.name).toLowerCase() === 'incident').length;
+    return { total: issues.length, incidents, other: issues.length - incidents };
+  };
   const excludedMttr = completedThisMonth.length - resolvedEntries.length;
   return {
     mode: 'live', generatedAt: new Date().toISOString(), sev1WindowMinutes: sevMinutes, openIncidentCount: openIncidents.total,
     openIncidentTrend: [42,48,46,54,51,59,57,64,61,68,65,Math.min(92, 40 + openIncidents.total / 2)], openSev1, recentSev1,
-    mttr: { resolvedCount: times.length, periodLabel: monthLabel + ' · month to date', operational: mttrGroup(operationalEntries), drishti: mttrGroup(drishtiEntries) }, teamOpen: { total: issueRows.length, incidents, other: issueRows.length - incidents },
-    team, openTickets: issueRows, rcaTickets: rcaRows, windowLabel: 'Asia/Kolkata · Month ' + monthStart + ' 00:00 → now',
+    mttr: { resolvedCount: times.length, periodLabel: monthLabel + ' · Time to Resolution field', operational: mttrGroup(operationalEntries), drishti: mttrGroup(drishtiEntries) },
+    teamOpen: { ...countTypes(openTeam.issues), periodLabel: '15 Apr 2026 → now' },
+    monthCreated: { ...countTypes(monthCreated.issues), periodLabel: monthLabel + ' · created' },
+    team, openTickets: [], rcaTickets: [], windowLabel: 'Asia/Kolkata · open load from 15 Apr 2026 · monthly metrics from ' + monthStart,
     warnings: [...(sevField ? [] : ['Jira field INC Severity could not be resolved']), ...(ttrField ? [] : ['Jira field Time to Resolution could not be resolved']), ...(l2InvolvedField ? [] : ['Jira field L2 Involved could not be resolved · RCA matching uses assignee only']), ...(excludedMttr ? [excludedMttr + ' completed incidents excluded from monthly MTTR because Time to Resolution is blank or invalid'] : []), ...(unresolved.length ? ['Unresolved Jira member mapping: ' + unresolved.join(', ')] : [])]
   };
 }
@@ -310,8 +307,9 @@ function unavailableDashboard(mode, warning) {
     mode, generatedAt: new Date().toISOString(), sev1WindowMinutes: 30,
     openIncidentCount: null, openIncidentTrend: [], openSev1: [], recentSev1: [],
     mttr: { resolvedCount: null, periodLabel: 'Month to date', operational: { resolvedCount: null, bySeverity: { sev1: { hours: null, target: 2 }, sev2: { hours: null, target: 24 }, sev3: { hours: null, target: 72 } } }, drishti: { resolvedCount: null, bySeverity: { sev1: { hours: null, target: 2 }, sev2: { hours: null, target: 24 }, sev3: { hours: null, target: 72 } } } },
-    teamOpen: { total: null, incidents: null, other: null },
-    team: TEAM_NAMES.map((name) => ({ name, assignedOpen: null, completedOrReviewedToday: null, rcaInProgress: null })),
+    teamOpen: { total: null, incidents: null, other: null, periodLabel: '15 Apr 2026 → now' },
+    monthCreated: { total: null, incidents: null, other: null, periodLabel: 'Current month · created' },
+    team: TEAM_NAMES.map((name) => ({ name, assignedOpen: null, pendingIncidents: null, completedOrReviewedToday: null, rcaInProgress: null })),
     openTickets: [], rcaTickets: [], windowLabel: 'Live CVIR data unavailable', warnings: [warning]
   };
 }

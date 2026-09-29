@@ -8,7 +8,7 @@
     <title>CVIR Operations Wallboard</title>
     <meta name="description" content="Live five-minute CVIR incident and team operations wallboard." />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307111c'/%3E%3Cpath d='M14 42V22h8v20zm14 0V14h8v28zm14 0V28h8v14z' fill='%233be4bf'/%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="/styles.css?v=20260929-operational-jql-logo" />
+    <link rel="stylesheet" href="/styles.css?v=20260929-team-load-windows" />
   </head>
   <body>
     <main class="shell" aria-live="polite">
@@ -73,20 +73,26 @@
         </article>
 
         <article class="card workload-card">
-          <div class="card-label"><span>Team open load</span><span>In Review excluded</span></div>
-          <div class="kpi-row"><strong class="kpi-value" id="teamOpenTotal">—</strong><span class="kpi-unit">tickets</span></div>
+          <div class="card-label"><span>Team open load</span><span>15 Apr → now</span></div>
+          <div class="kpi-row"><strong class="kpi-value" id="teamOpenTotal">—</strong><span class="kpi-unit">open tickets</span></div>
           <div class="mini-split"><span><i class="legend incident"></i><b id="teamIncidentTotal">—</b> incidents</span><span><i class="legend other"></i><b id="teamOtherTotal">—</b> other</span></div>
+        </article>
+
+        <article class="card month-created-card">
+          <div class="card-label"><span>Current-month created</span><span id="monthCreatedLabel">Month to date</span></div>
+          <div class="kpi-row"><strong class="kpi-value" id="monthCreatedTotal">—</strong><span class="kpi-unit">tickets created</span></div>
+          <div class="mini-split"><span><i class="legend incident"></i><b id="monthCreatedIncidentTotal">—</b> incidents</span><span><i class="legend other"></i><b id="monthCreatedOtherTotal">—</b> other</span></div>
         </article>
       </section>
 
       <section class="main-grid">
         <article class="card team-card">
           <div class="section-heading">
-            <div><p class="eyebrow">Today’s handoff</p><h2>Team movement</h2></div>
-            <div class="legend-row"><span><i class="legend other"></i>Assigned open now</span><span><i class="legend closed"></i>Closed / In Review today</span><span><i class="legend rca"></i>RCA follow-up</span></div>
+            <div><p class="eyebrow">Open load · 15 Apr 2026 → now</p><h2>Team movement</h2></div>
+            <div class="legend-row"><span><i class="legend other"></i>Assigned open</span><span><i class="legend incident"></i>Pending incident</span><span><i class="legend closed"></i>Closed / In Review today</span><span><i class="legend rca"></i>RCA follow-up</span></div>
           </div>
           <div class="team-table" id="teamTable" role="table" aria-label="Team throughput">
-            <div class="team-header" role="row"><span role="columnheader">Owner</span><span role="columnheader">Assigned open</span><span role="columnheader">Closed / In Review today</span><span role="columnheader">RCA</span></div>
+            <div class="team-header" role="row"><span role="columnheader">Owner</span><span role="columnheader">Assigned open</span><span role="columnheader">Pending incident</span><span role="columnheader">Closed / In Review today</span><span role="columnheader">RCA</span></div>
             <div class="loading-lines"><span></span><span></span><span></span><span></span></div>
           </div>
         </article>
@@ -99,13 +105,6 @@
           <div class="resource-list" id="resourceList"><div class="empty-state">Loading resource alignment…</div></div>
         </article>
 
-        <article class="card queue-card">
-          <div class="section-heading">
-            <div><p class="eyebrow" id="queueEyebrow">Assigned workload</p><h2 id="queueTitle">Open ticket queue</h2></div>
-            <div class="page-indicator"><span id="queueRange">—</span><div class="pager-dots" id="pagerDots"></div></div>
-          </div>
-          <div class="ticket-list" id="ticketList"><div class="empty-state">Loading current assignments…</div></div>
-        </article>
       </section>
 
       <footer>
@@ -126,6 +125,6 @@
         <button class="sev-alert-action" id="sevAlertAcknowledge" type="button">Acknowledge</button>
       </div>
     </div>
-    <script src="/app.js?v=20260929-operational-jql-logo"></script>
+    <script src="/app.js?v=20260929-team-load-windows"></script>
   </body>
 </html>

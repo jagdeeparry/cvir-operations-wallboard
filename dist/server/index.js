@@ -110,7 +110,13 @@ function authHeaders(env) {
 async function jira(env, path, options = {}) {
   const base = String(env.JIRA_BASE_URL || '').replace(/\/$/, '');
   const response = await fetch(base + path, { ...options, headers: { ...authHeaders(env), ...(options.headers || {}) } });
-  if (!response.ok) throw new Error('Jira request failed (' + response.status + ')');
+  if (!response.ok) {
+    const route = path.split('?')[0];
+    const error = new Error('Jira request failed (' + response.status + ') at ' + route);
+    error.status = response.status;
+    error.route = route;
+    throw error;
+  }
   return response.json();
 }
 function fieldValue(value) {
@@ -210,7 +216,14 @@ async function resolveUsers(env) {
   const resolved = [];
   for (const name of TEAM_NAMES) {
     if (pinned[name]) { resolved.push({ name, accountId: pinned[name], displayName: name }); continue; }
-    const candidates = await jira(env, '/rest/api/3/user/assignable/search?project=CVIR&maxResults=50&query=' + encodeURIComponent(name));
+    const encodedName = encodeURIComponent(name);
+    let candidates;
+    try {
+      candidates = await jira(env, '/rest/api/3/user/assignable/search?project=CVIR&maxResults=50&query=' + encodedName);
+    } catch (error) {
+      if (error.status !== 404) throw error;
+      candidates = await jira(env, '/rest/api/3/user/search?maxResults=50&query=' + encodedName);
+    }
     const exact = candidates.find((u) => normalize(u.displayName) === normalize(name));
     const prefix = candidates.find((u) => normalize(u.displayName).includes(normalize(name)) || normalize(name).includes(normalize(u.displayName)));
     const chosen = exact || prefix;

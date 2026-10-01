@@ -56,6 +56,8 @@ assert.doesNotMatch(worker, /hoursBetween/);
 assert.match(worker, /current-month created and completed incidents excluded from monthly MTTR because Time to Resolution is blank or invalid/);
 assert.match(worker, /api\.atlassian\.com\/ex\/jira/);
 assert.match(worker, /'Bearer ' \+ env\.JIRA_API_TOKEN/);
+assert.match(worker, /Jira request failed \(' \+ response\.status \+ '\) at ' \+ route/);
+assert.match(worker, /\/rest\/api\/3\/user\/search\?maxResults=50&query=/);
 assert.match(app, /Closed \/ In Review today/);
 assert.match(app, /renderMttrGroup\('operational'/);
 assert.match(app, /renderMttrGroup\('drishti'/);

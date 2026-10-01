@@ -58,6 +58,7 @@ assert.match(worker, /api\.atlassian\.com\/ex\/jira/);
 assert.match(worker, /'Bearer ' \+ env\.JIRA_API_TOKEN/);
 assert.match(worker, /Jira request failed \(' \+ response\.status \+ '\) at ' \+ route/);
 assert.match(worker, /\/rest\/api\/3\/user\/search\?maxResults=50&query=/);
+assert.match(worker, /jira\(env, '\/rest\/api\/3\/myself'\)/);
 assert.match(app, /Closed \/ In Review today/);
 assert.match(app, /renderMttrGroup\('operational'/);
 assert.match(app, /renderMttrGroup\('drishti'/);

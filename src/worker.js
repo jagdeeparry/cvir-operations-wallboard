@@ -234,6 +234,8 @@ function median(values) { if (!values.length) return null; const sorted = values
 function ago(iso) { const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); if (mins < 60) return mins + ' min ago'; const hrs = Math.round(mins / 60); return hrs < 24 ? hrs + 'h ago' : Math.round(hrs / 24) + 'd ago'; }
 
 async function liveDashboard(env) {
+  const jiraUser = await jira(env, '/rest/api/3/myself');
+  if (!jiraUser || !jiraUser.accountId) throw new Error('Jira authentication could not be verified');
   const fieldMap = await fields(env);
   const sevField = fieldMap['inc severity'];
   const ttrField = fieldMap['time to resolution'];

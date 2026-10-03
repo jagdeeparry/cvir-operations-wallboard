@@ -93,6 +93,64 @@ async function resourceAlignmentResponse(request, env, url) {
   if (url.pathname.startsWith('/api/resource-alignments')) return json({ error: 'Method not allowed' }, 405);
   return null;
 }
+function validSlackImageUrl(value) {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:') return false;
+    const host = url.hostname.toLowerCase();
+    return host === 'avatars.slack-edge.com'
+      || host.endsWith('.slack-edge.com')
+      || host === 'secure.gravatar.com';
+  } catch (_) { return false; }
+}
+async function employeeOfMonthRecord(env) {
+  const row = await alignmentDatabase(env).prepare(
+    'SELECT enabled, employee_name AS employeeName, slack_image_url AS slackImageUrl, recognition, updated_at AS updatedAt FROM employee_of_month WHERE id = 1'
+  ).first();
+  return row || { enabled: 0, employeeName: '', slackImageUrl: '', recognition: '', updatedAt: null };
+}
+function publicEmployeeOfMonth(record, includeDraft = false) {
+  const enabled = Boolean(record && record.enabled);
+  return {
+    enabled,
+    employee: enabled || includeDraft ? {
+      name: String(record.employeeName || ''),
+      imageUrl: String(record.slackImageUrl || ''),
+      recognition: String(record.recognition || ''),
+      updatedAt: record.updatedAt || null
+    } : null
+  };
+}
+async function employeeOfMonthResponse(request, env, url) {
+  if (url.pathname !== '/api/employee-of-month') return null;
+  if (request.method === 'GET') {
+    try {
+      const record = await employeeOfMonthRecord(env);
+      return json(publicEmployeeOfMonth(record, managerAuthorized(request, env)));
+    } catch (error) { return json({ enabled: false, employee: null, error: String(error.message || error) }, 503); }
+  }
+  if (request.method === 'PUT') {
+    if (!managerAuthorized(request, env)) return json({ error: 'Invalid manager access code' }, 401);
+    let body;
+    try { body = await request.json(); }
+    catch (_) { return json({ error: 'Request body must be valid JSON' }, 400); }
+    const enabled = body.enabled === true;
+    const employeeName = boundedText(body.employeeName, 80);
+    const slackImageUrl = boundedText(body.slackImageUrl, 500);
+    const recognition = boundedText(body.recognition, 180);
+    if (enabled && !employeeName) return json({ error: 'Employee name is required before enabling the TV spotlight' }, 400);
+    if (enabled && !slackImageUrl) return json({ error: 'Slack profile image URL is required before enabling the TV spotlight' }, 400);
+    if (slackImageUrl && !validSlackImageUrl(slackImageUrl)) return json({ error: 'Use a Slack profile image URL from slack-edge.com or secure.gravatar.com' }, 400);
+    try {
+      await alignmentDatabase(env).prepare(
+        'INSERT INTO employee_of_month (id, enabled, employee_name, slack_image_url, recognition, updated_at) VALUES (1, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(id) DO UPDATE SET enabled = excluded.enabled, employee_name = excluded.employee_name, slack_image_url = excluded.slack_image_url, recognition = excluded.recognition, updated_at = CURRENT_TIMESTAMP'
+      ).bind(enabled ? 1 : 0, employeeName, slackImageUrl, recognition).run();
+      return json({ ok: true, ...publicEmployeeOfMonth(await employeeOfMonthRecord(env), true) });
+    } catch (error) { return json({ error: String(error.message || error) }, 503); }
+  }
+  return json({ error: 'Method not allowed' }, 405);
+}
 function authHeaders(env) {
   const base = String(env.JIRA_BASE_URL || '').toLowerCase();
   const authorization = base.startsWith('https://api.atlassian.com/ex/jira/')
@@ -332,6 +390,8 @@ function unavailableDashboard(mode, warning) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const employeeResponse = await employeeOfMonthResponse(request, env, url);
+    if (employeeResponse) return employeeResponse;
     const resourceResponse = await resourceAlignmentResponse(request, env, url);
     if (resourceResponse) return resourceResponse;
     if (url.pathname === '/styles.css') {
@@ -352,7 +412,7 @@ export default {
       return new Response(__MANAGE_JS__, { headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff' } });
     }
     if (url.pathname === '/manage' || url.pathname === '/manage/') {
-      return new Response(__MANAGE_HTML__, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache', 'content-security-policy': "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'", 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff' } });
+      return new Response(__MANAGE_HTML__, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache', 'content-security-policy': "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data: https://*.slack-edge.com https://secure.gravatar.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'", 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff' } });
     }
     if (url.pathname === '/api/dashboard') {
       if (!env.JIRA_BASE_URL || !env.JIRA_EMAIL || !env.JIRA_API_TOKEN) return json(unavailableDashboard('unconfigured', 'Jira is not connected · live CVIR figures are hidden'));
@@ -360,6 +420,6 @@ export default {
       catch (error) { return json({ ...unavailableDashboard('error', 'Live Jira refresh failed · figures are hidden'), diagnostic: String(error.message || error) }, 502); }
     }
     if (url.pathname === '/health') return json({ ok: true, jiraConfigured: Boolean(env.JIRA_BASE_URL && env.JIRA_EMAIL && env.JIRA_API_TOKEN) });
-    return new Response(__INDEX_HTML__, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache', 'content-security-policy': "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'", 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff' } });
+    return new Response(__INDEX_HTML__, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache', 'content-security-policy': "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data: https://*.slack-edge.com https://secure.gravatar.com; frame-ancestors 'none'; base-uri 'none'; form-action 'none'", 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff' } });
   }
 };

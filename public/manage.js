@@ -4,6 +4,7 @@
   var managerCode = '';
   var $ = function (id) { return document.getElementById(id); };
   function esc(value) { return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]; }); }
+  function initials(name) { return String(name || 'EOM').split(/\s+/).filter(Boolean).map(function (part) { return part.charAt(0); }).join('').slice(0, 2).toUpperCase() || 'EOM'; }
   function message(id, text, type) { var el = $(id); el.textContent = text || ''; el.className = 'message' + (type ? ' ' + type : ''); }
   function request(path, options) {
     var config = options || {};
@@ -30,12 +31,32 @@
     $('completedList').innerHTML = completedItems.length ? completedItems.map(function (item) { return row(item, true); }).join('') : '<div class="empty">No completed activities yet.</div>';
   }
   function loadItems() { return request('/api/resource-alignments').then(function (body) { render(body.items || [], body.completedItems || []); }); }
+  function updateEmployeePreview() {
+    var name = $('employeeName').value.trim();
+    var imageUrl = $('slackImageUrl').value.trim();
+    var recognition = $('employeeRecognition').value.trim();
+    $('employeePreviewName').textContent = name || 'Employee name';
+    $('employeePreviewInitials').textContent = initials(name);
+    $('employeePreviewRecognition').textContent = recognition || 'Recognition note';
+    $('employeePreviewImage').hidden = !imageUrl;
+    $('employeePreviewInitials').hidden = Boolean(imageUrl);
+    if (imageUrl) $('employeePreviewImage').src = imageUrl;
+  }
+  function renderEmployeeConfig(body) {
+    var employee = body.employee || {};
+    $('employeeEnabled').checked = body.enabled === true;
+    $('employeeName').value = employee.name || '';
+    $('slackImageUrl').value = employee.imageUrl || '';
+    $('employeeRecognition').value = employee.recognition || '';
+    updateEmployeePreview();
+  }
+  function loadEmployeeConfig() { return request('/api/employee-of-month').then(renderEmployeeConfig); }
   function unlock(code) {
     managerCode = code;
     return request('/api/resource-alignments/auth').then(function () {
       sessionStorage.setItem(CODE_STORAGE, managerCode);
       $('loginPanel').hidden = true; $('managerWorkspace').hidden = false;
-      return loadItems();
+      return Promise.all([loadItems(), loadEmployeeConfig()]);
     });
   }
   $('loginForm').addEventListener('submit', function (event) {
@@ -47,6 +68,14 @@
     var payload = { activityType:$('activityType').value, title:$('activityTitle').value.trim(), resources:$('resources').value.trim(), schedule:$('schedule').value.trim(), notes:$('notes').value.trim() };
     request('/api/resource-alignments', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) }).then(function () { $('alignmentForm').reset(); message('formMessage', 'Published to the TV board.', 'success'); return loadItems(); }).catch(function (error) { message('formMessage', error.message, 'error'); });
   });
+  $('employeeForm').addEventListener('submit', function (event) {
+    event.preventDefault(); message('employeeMessage', 'Saving spotlight…');
+    var payload = { enabled:$('employeeEnabled').checked, employeeName:$('employeeName').value.trim(), slackImageUrl:$('slackImageUrl').value.trim(), recognition:$('employeeRecognition').value.trim() };
+    request('/api/employee-of-month', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) }).then(function (body) { renderEmployeeConfig(body); message('employeeMessage', body.enabled ? 'Employee spotlight is live on the TV dashboard.' : 'Employee spotlight saved and hidden from TV.', 'success'); }).catch(function (error) { message('employeeMessage', error.message, 'error'); });
+  });
+  ['employeeName','slackImageUrl','employeeRecognition'].forEach(function (id) { $(id).addEventListener('input', updateEmployeePreview); });
+  $('employeePreviewImage').addEventListener('error', function () { this.hidden = true; $('employeePreviewInitials').hidden = false; });
+  $('employeePreviewImage').addEventListener('load', function () { this.hidden = false; $('employeePreviewInitials').hidden = true; });
   $('managerWorkspace').addEventListener('click', function (event) {
     var completeButton = event.target.closest('[data-complete-id]');
     if (completeButton) {

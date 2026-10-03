@@ -71,6 +71,9 @@ assert.match(app, /setInterval\(alarmBurst, 3600\)/);
 assert.match(app, /setTimeout\(stopSev1Alarm, 10000\)/);
 assert.match(app, /sevAlertAcknowledge/);
 assert.match(app, /fetchResourceAlignments/);
+assert.match(app, /fetchEmployeeOfMonth/);
+assert.match(app, /employeeMonthCard/);
+assert.match(app, /sideRail.*has-employee/);
 assert.match(app, /RESOURCE_SCROLL_INTERVAL = 40/);
 assert.match(app, /function startResourceAutoScroll\(\)/);
 assert.match(app, /resourceScrollDirection/);
@@ -81,6 +84,8 @@ assert.match(app, /monthCreatedTotal/);
 assert.match(app, /kimbalRefreshLogo/);
 assert.match(app, /'Shiva Sharma'/);
 assert.match(html, /id="resourceList"/);
+assert.match(html, /id="employeeMonthCard"/);
+assert.match(html, /Employee of the month/);
 assert.match(html, /Open SEV-1/);
 assert.match(html, /Monthly MTTR split/);
 assert.match(html, /Current-month created/);
@@ -92,8 +97,8 @@ assert.match(html, /kimbal-logo\.png/);
 assert.doesNotMatch(html, /class="kimbal-logo"/);
 assert.match(styles, /\.kimbal-mark \{[^}]*left: 50%;[^}]*top: 50%/);
 assert.match(styles, /\.kimbal-mark img \{[^}]*height: 74px/);
-assert.match(html, /styles\.css\?v=20260929-team-movement-type/);
-assert.match(html, /app\.js\?v=20260929-team-type-resource-scroll/);
+assert.match(html, /styles\.css\?v=20261003-employee-spotlight/);
+assert.match(html, /app\.js\?v=20261003-employee-spotlight/);
 assert.match(html, /id="resourceList" tabindex="0"/);
 assert.match(styles, /\.team-header \{[^}]*font-size: \.68rem/);
 assert.match(styles, /\.person-name \{[^}]*font-size: \.94rem/);
@@ -104,10 +109,14 @@ assert.deepEqual(Array.from(Buffer.from(kimbalLogoBase64, 'base64').subarray(0, 
 assert.doesNotMatch(html, /href="\/manage"/);
 assert.match(managerHtml, /id="alignmentForm"/);
 assert.match(managerHtml, /id="completedList"/);
-assert.match(managerHtml, /manage\.css\?v=20260928-completed-activities/);
-assert.match(managerHtml, /manage\.js\?v=20260928-completed-activities/);
+assert.match(managerHtml, /id="employeeForm"/);
+assert.match(managerHtml, /id="employeeEnabled"/);
+assert.match(managerHtml, /id="slackImageUrl"/);
+assert.match(managerHtml, /manage\.css\?v=20261003-employee-spotlight/);
+assert.match(managerHtml, /manage\.js\?v=20261003-employee-spotlight/);
 assert.match(managerApp, /data-complete-id/);
 assert.match(managerApp, /completedItems/);
+assert.match(managerApp, /api\/employee-of-month/);
 assert.match(worker, /X-Manager-Access-Code/i);
 assert.match(worker, /RESOURCE_MANAGER_ACCESS_CODE/);
 assert.match(worker, /INSERT INTO resource_alignments/);
@@ -115,6 +124,9 @@ assert.match(worker, /UPDATE resource_alignments SET completed_at = CURRENT_TIME
 assert.match(worker, /WHERE completed_at IS NULL/);
 assert.match(worker, /WHERE completed_at IS NOT NULL/);
 assert.match(worker, /DELETE FROM resource_alignments WHERE id = \?/);
+assert.match(worker, /INSERT INTO employee_of_month/);
+assert.match(worker, /avatars\.slack-edge\.com/);
+assert.match(worker, /url\.pathname !== '\/api\/employee-of-month'/);
 assert.match(worker, /url\.pathname === '\/manage'/);
 const hosting = JSON.parse(await readFile(new URL('../.openai/hosting.json', import.meta.url), 'utf8'));
 assert.equal(hosting.d1, 'DB');
@@ -124,6 +136,7 @@ const fakeDb = {
     calls.push(sql);
     return {
       async all() { return { results: [{ id: 1, activityType: 'SAT', title: 'Customer SAT', resources: 'Darshita', schedule: 'Friday', notes: '', sortOrder: 1, createdAt: '2026-09-24' }] }; },
+      async first() { return sql.includes('FROM employee_of_month') ? { enabled: 1, employeeName: 'Darshita Dimri', slackImageUrl: 'https://avatars.slack-edge.com/example.png', recognition: 'Customer ownership', updatedAt: '2026-10-03' } : null; },
       bind(...values) { calls.push(values); return { async run() { return { meta: { last_row_id: 2 } }; } }; }
     };
   }
@@ -140,6 +153,14 @@ response = await workerModule.default.fetch(new Request('https://example.test/ap
 assert.equal(response.status, 200);
 response = await workerModule.default.fetch(new Request('https://example.test/api/resource-alignments/2', { method: 'DELETE', headers: { 'x-manager-access-code': 'manager-test-code' } }), workerEnv);
 assert.equal(response.status, 200);
+response = await workerModule.default.fetch(new Request('https://example.test/api/employee-of-month'), workerEnv);
+assert.equal(response.status, 200);
+assert.equal((await response.json()).employee.name, 'Darshita Dimri');
+response = await workerModule.default.fetch(new Request('https://example.test/api/employee-of-month', { method: 'PUT', headers: { 'content-type': 'application/json', 'x-manager-access-code': 'manager-test-code' }, body: JSON.stringify({ enabled: true, employeeName: 'Darshita Dimri', slackImageUrl: 'https://avatars.slack-edge.com/example.png', recognition: 'Customer ownership' }) }), workerEnv);
+assert.equal(response.status, 200);
+response = await workerModule.default.fetch(new Request('https://example.test/api/employee-of-month', { method: 'PUT', headers: { 'content-type': 'application/json', 'x-manager-access-code': 'manager-test-code' }, body: JSON.stringify({ enabled: true, employeeName: 'Darshita Dimri', slackImageUrl: 'https://example.com/photo.png' }) }), workerEnv);
+assert.equal(response.status, 400);
 assert.ok(calls.some((call) => typeof call === 'string' && call.startsWith('INSERT INTO resource_alignments')));
 assert.ok(calls.some((call) => typeof call === 'string' && call.startsWith('UPDATE resource_alignments SET completed_at')));
+assert.ok(calls.some((call) => typeof call === 'string' && call.startsWith('INSERT INTO employee_of_month')));
 console.log('Source files and browser JavaScript validated');

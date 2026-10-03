@@ -132,6 +132,24 @@
     state.resourceScrollDirection = 1;
     state.resourceScrollPauseUntil = Date.now() + RESOURCE_SCROLL_PAUSE;
   }
+  function renderEmployeeOfMonth(data) {
+    var enabled = Boolean(data && data.enabled && data.employee && data.employee.name);
+    var card = $('employeeMonthCard');
+    card.hidden = !enabled;
+    $('sideRail').classList.toggle('has-employee', enabled);
+    if (!enabled) return;
+    var employee = data.employee;
+    var name = String(employee.name || '');
+    var recognition = String(employee.recognition || '');
+    var imageUrl = String(employee.imageUrl || '');
+    $('employeeMonthName').textContent = name;
+    $('employeeMonthInitials').textContent = initials(name);
+    $('employeeMonthRecognition').textContent = recognition;
+    $('employeeMonthRecognition').hidden = !recognition;
+    $('employeeMonthImage').hidden = true;
+    $('employeeMonthInitials').hidden = false;
+    if (imageUrl) $('employeeMonthImage').src = imageUrl;
+  }
   function startResourceAutoScroll() {
     if (resourceScrollTimer) clearInterval(resourceScrollTimer);
     resourceScrollTimer = setInterval(function () {
@@ -156,6 +174,12 @@
       .then(function (response) { if (!response.ok) throw new Error('Resource service returned ' + response.status); return response.json(); })
       .then(function (data) { state.alignments = Array.isArray(data.items) ? data.items : []; state.resourceAvailable = true; renderResourceAlignments(); })
       .catch(function () { state.alignments = []; state.resourceAvailable = false; renderResourceAlignments(); });
+  }
+  function fetchEmployeeOfMonth() {
+    return fetch(apiBase + '/api/employee-of-month', { cache: 'no-store', headers: { 'Accept': 'application/json' } })
+      .then(function (response) { if (!response.ok) throw new Error('Employee spotlight service returned ' + response.status); return response.json(); })
+      .then(renderEmployeeOfMonth)
+      .catch(function () { renderEmployeeOfMonth({ enabled: false, employee: null }); });
   }
   function render(data) {
     state.data = data;
@@ -193,11 +217,12 @@
     void $('kimbalRefreshLogo').offsetWidth;
     $('kimbalRefreshLogo').classList.add('is-refreshing');
     var alignmentsRequest = fetchResourceAlignments();
+    var employeeRequest = fetchEmployeeOfMonth();
     var dashboardRequest = fetch(apiBase + '/api/dashboard', { cache: 'no-store', headers: { 'Accept': 'application/json' } })
       .then(function (r) { if (!r.ok) throw new Error('Dashboard service returned ' + r.status); return r.json(); })
       .then(function (data) { render(data); handleNewSev1(data); state.countdown = REFRESH_SECONDS; if (manual) toast(data.mode === 'live' ? 'Live Jira data refreshed' : 'Live Jira data unavailable'); })
       .catch(function () { render(window.CVIR_UNAVAILABLE_DATA); state.countdown = REFRESH_SECONDS; if (manual) toast('Dashboard service unavailable'); });
-    Promise.all([alignmentsRequest, dashboardRequest]).then(function () {
+    Promise.all([alignmentsRequest, employeeRequest, dashboardRequest]).then(function () {
       state.busy = false; $('refreshButton').classList.remove('loading');
       state.logoTimer = setTimeout(function () { $('kimbalRefreshLogo').classList.remove('is-refreshing'); state.logoTimer = null; }, 1300);
     });
@@ -217,6 +242,8 @@
   $('resourceList').addEventListener('pointerleave', function () { state.resourceScrollPaused = false; state.resourceScrollPauseUntil = Date.now() + 900; });
   $('resourceList').addEventListener('focusin', function () { state.resourceScrollPaused = true; });
   $('resourceList').addEventListener('focusout', function () { state.resourceScrollPaused = false; state.resourceScrollPauseUntil = Date.now() + 900; });
+  $('employeeMonthImage').addEventListener('load', function () { this.hidden = false; $('employeeMonthInitials').hidden = true; });
+  $('employeeMonthImage').addEventListener('error', function () { this.hidden = true; $('employeeMonthInitials').hidden = false; });
   startResourceAutoScroll();
   clock(); setInterval(clock, 1000); fetchData(false);
 }());

@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#07121c" />
     <title>Resource Alignment Manager</title>
     <meta name="description" content="Manage resource alignment activities displayed on the System Support Stats wallboard." />
-    <link rel="stylesheet" href="/manage.css?v=20260928-completed-activities" />
+    <link rel="stylesheet" href="/manage.css?v=20261003-employee-spotlight" />
   </head>
   <body>
     <main class="manager-shell">
@@ -27,6 +27,27 @@
       </section>
 
       <div id="managerWorkspace" hidden>
+        <section class="panel employee-panel">
+          <div class="section-heading">
+            <div><p class="eyebrow employee-eyebrow">Recognition spotlight</p><h2>Employee of the month</h2></div>
+            <label class="feature-toggle" for="employeeEnabled"><input id="employeeEnabled" type="checkbox" /><span aria-hidden="true"></span><strong>Show on TV</strong></label>
+          </div>
+          <p class="section-copy">Add the employee's name and Slack profile photo. The spotlight appears on every TV only when the flag is enabled.</p>
+          <form class="employee-form" id="employeeForm">
+            <div class="employee-preview" aria-label="Employee spotlight preview">
+              <span class="employee-preview-photo"><img id="employeePreviewImage" alt="" hidden /><span id="employeePreviewInitials">EOM</span></span>
+              <span><small>Employee of the month</small><strong id="employeePreviewName">Employee name</strong><em id="employeePreviewRecognition">Recognition note</em></span>
+            </div>
+            <div class="employee-fields">
+              <label>Employee name<input id="employeeName" maxlength="80" placeholder="e.g. Darshita Dimri" /></label>
+              <label>Slack profile image URL<input id="slackImageUrl" type="url" maxlength="500" placeholder="https://avatars.slack-edge.com/..." /></label>
+              <p class="field-help">In Slack, open the employee's profile photo and copy the image address. Slack Edge and Slack Gravatar URLs are accepted.</p>
+              <label>Recognition line<textarea id="employeeRecognition" maxlength="180" rows="2" placeholder="e.g. Outstanding ownership and customer support"></textarea></label>
+            </div>
+            <div class="wide form-actions"><button type="submit">Save spotlight</button><span class="message" id="employeeMessage" role="status"></span></div>
+          </form>
+        </section>
+
         <section class="panel">
           <div class="section-heading"><div><p class="eyebrow">Add alignment</p><h2>Ongoing activity</h2></div><button class="secondary" id="lockButton" type="button">Lock editor</button></div>
           <form class="alignment-form" id="alignmentForm">
@@ -55,6 +76,6 @@
         </section>
       </div>
     </main>
-    <script src="/manage.js?v=20260928-completed-activities"></script>
+    <script src="/manage.js?v=20261003-employee-spotlight"></script>
   </body>
 </html>

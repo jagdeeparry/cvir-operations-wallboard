@@ -14,3 +14,12 @@ export const resourceAlignments = sqliteTable("resource_alignments", {
 }, (table) => [
   index("idx_resource_alignments_completed_at").on(table.completedAt),
 ]);
+
+export const employeeOfMonth = sqliteTable("employee_of_month", {
+  id: integer("id").primaryKey(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
+  employeeName: text("employee_name").notNull().default(""),
+  slackImageUrl: text("slack_image_url").notNull().default(""),
+  recognition: text("recognition").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});

@@ -2,16 +2,18 @@
   'use strict';
 
   var REFRESH_SECONDS = 300;
+  var BOARD_ROTATE_SECONDS = 30;
   var RESOURCE_SCROLL_INTERVAL = 40;
   var RESOURCE_SCROLL_PAUSE = 2200;
   var SEEN_SEV1_STORAGE = 'cvir-seen-sev1-keys-v1';
-  var state = { countdown: REFRESH_SECONDS, alignments: [], resourceAvailable: true, resourceScrollDirection: 1, resourceScrollPauseUntil: 0, resourceScrollPaused: false, data: null, busy: false, logoTimer: null };
+  var state = { countdown: REFRESH_SECONDS, boardCountdown: BOARD_ROTATE_SECONDS, alignments: [], resourceAvailable: true, resourceScrollDirection: 1, resourceScrollPauseUntil: 0, resourceScrollPaused: false, data: null, busy: false, logoTimer: null };
   var audioContext = null;
   var alarmTimer = null;
   var alarmAutoCloseTimer = null;
   var resourceScrollTimer = null;
   var apiMeta = document.querySelector('meta[name="cvir-api-base"]');
   var apiBase = apiMeta && apiMeta.content ? apiMeta.content.replace(/\/$/, '') : '';
+  var mesBoardUrl = (apiBase || '') + '/mes';
 
   var $ = function (id) { return document.getElementById(id); };
   function esc(value) { return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]; }); }
@@ -237,7 +239,17 @@
   document.addEventListener('keydown', function (event) { var context = getAudioContext(); if (context && context.state === 'suspended') context.resume().catch(function () {}); if (event.key === 'Escape' && !$('sevAlertOverlay').hidden) stopSev1Alarm(); });
   document.addEventListener('pointerdown', function () { var context = getAudioContext(); if (context && context.state === 'suspended') context.resume().catch(function () {}); }, { once: true });
   $('refreshButton').addEventListener('click', function () { fetchData(true); });
-  setInterval(function () { state.countdown -= 1; if (state.countdown <= 0) fetchData(false); var m = Math.floor(state.countdown / 60); var s = state.countdown % 60; $('countdown').textContent = m + ':' + (s < 10 ? '0' : '') + s; }, 1000);
+  $('boardSwitch').href = mesBoardUrl;
+  setInterval(function () {
+    state.countdown -= 1;
+    if (state.countdown <= 0) fetchData(false);
+    var m = Math.floor(state.countdown / 60);
+    var s = state.countdown % 60;
+    $('countdown').textContent = m + ':' + (s < 10 ? '0' : '') + s;
+    if ($('sevAlertOverlay').hidden) state.boardCountdown -= 1;
+    $('boardCountdown').textContent = Math.max(0, state.boardCountdown) + 's';
+    if (state.boardCountdown <= 0 && $('sevAlertOverlay').hidden) window.location.replace(mesBoardUrl);
+  }, 1000);
   $('resourceList').addEventListener('pointerenter', function () { state.resourceScrollPaused = true; });
   $('resourceList').addEventListener('pointerleave', function () { state.resourceScrollPaused = false; state.resourceScrollPauseUntil = Date.now() + 900; });
   $('resourceList').addEventListener('focusin', function () { state.resourceScrollPaused = true; });

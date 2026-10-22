@@ -4,6 +4,8 @@ const ACTIVE_ASSIGNED_STATUSES = '("In Progress", "in progress (L1)", "in progre
 const DRISHTI_CREATOR = 'Arun Pandey';
 const TEAM_LOAD_START = '2026-04-15';
 const OPEN_OPERATIONAL_INCIDENT_JQL = 'project = CVIR AND issuetype = Incident AND statusCategory != Done AND status NOT IN ("In Review", "RCA in Progress") AND reporter not in (712020:eb8f8736-d102-4d00-9daa-c25a26740a39)';
+const MES_PROJECT_KEY = 'MES';
+const MES_PROJECT_URL = 'https://sinhaludyog.atlassian.net/jira/core/projects/MES/summary';
 const DEFAULT_SEV1_WINDOW = 30;
 const RESOURCE_ACTIVITY_TYPES = ['SAT', 'FIIT', 'FAT', 'Other'];
 let fieldCache = null;
@@ -375,6 +377,87 @@ async function liveDashboard(env) {
   };
 }
 
+function issueTypeName(issue) {
+  return String(issue && issue.fields && issue.fields.issuetype && issue.fields.issuetype.name || 'Other');
+}
+
+function assigneeName(issue) {
+  return String(issue && issue.fields && issue.fields.assignee && issue.fields.assignee.displayName || 'Unassigned');
+}
+
+function wholeDaysSince(value) {
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return null;
+  return Math.max(0, Math.floor((Date.now() - timestamp) / 86400000));
+}
+
+async function liveMesDashboard(env) {
+  const jiraUser = await jira(env, '/rest/api/3/myself');
+  if (!jiraUser || !jiraUser.accountId) throw new Error('Jira authentication could not be verified');
+  const monthStart = monthStartISO();
+  const monthLabel = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', year: 'numeric' }).format(new Date());
+  const base = 'project = ' + MES_PROJECT_KEY;
+  const workFields = ['summary', 'assignee', 'priority', 'issuetype', 'status', 'created', 'updated'];
+  const [openWork, monthCreated, monthCompleted, completedToday] = await Promise.all([
+    search(env, base + ' AND statusCategory != Done ORDER BY updated DESC', workFields, 5000),
+    search(env, base + ' AND created >= "' + monthStart + '" ORDER BY created DESC', ['assignee', 'issuetype', 'created'], 5000),
+    search(env, base + ' AND created >= "' + monthStart + '" AND statusCategory = Done AND resolutiondate >= "' + monthStart + '" ORDER BY resolutiondate DESC', ['assignee', 'issuetype', 'resolutiondate'], 5000),
+    search(env, base + ' AND statusCategory = Done AND resolutiondate >= startOfDay() ORDER BY resolutiondate DESC', ['assignee', 'issuetype', 'resolutiondate'], 5000)
+  ]);
+  const highPriorityOpen = openWork.issues.filter((issue) => /^(highest|high)$/i.test(fieldValue(issue.fields.priority))).length;
+  const unassignedOpen = openWork.issues.filter((issue) => !issue.fields.assignee).length;
+  const typeCounts = { task: 0, issue: 0, serviceRequest: 0, other: 0 };
+  openWork.issues.forEach((issue) => {
+    const type = normalize(issueTypeName(issue));
+    if (type === 'task') typeCounts.task += 1;
+    else if (type === 'issue') typeCounts.issue += 1;
+    else if (type === 'servicerequest') typeCounts.serviceRequest += 1;
+    else typeCounts.other += 1;
+  });
+  const statusCounts = {};
+  openWork.issues.forEach((issue) => {
+    const status = fieldValue(issue.fields.status) || 'Unknown';
+    statusCounts[status] = (statusCounts[status] || 0) + 1;
+  });
+  const people = new Map();
+  const person = (name) => {
+    if (!people.has(name)) people.set(name, { name, assignedOpen: 0, highPriorityOpen: 0, createdThisMonth: 0, completedToday: 0, oldestOpenDays: null });
+    return people.get(name);
+  };
+  openWork.issues.forEach((issue) => {
+    const name = assigneeName(issue);
+    if (name === 'Unassigned') return;
+    const row = person(name);
+    row.assignedOpen += 1;
+    if (/^(highest|high)$/i.test(fieldValue(issue.fields.priority))) row.highPriorityOpen += 1;
+    const age = wholeDaysSince(issue.fields.created);
+    if (age != null) row.oldestOpenDays = row.oldestOpenDays == null ? age : Math.max(row.oldestOpenDays, age);
+  });
+  monthCreated.issues.forEach((issue) => {
+    const name = assigneeName(issue);
+    if (name !== 'Unassigned') person(name).createdThisMonth += 1;
+  });
+  completedToday.issues.forEach((issue) => {
+    const name = assigneeName(issue);
+    if (name !== 'Unassigned') person(name).completedToday += 1;
+  });
+  const team = [...people.values()]
+    .sort((a, b) => b.assignedOpen - a.assignedOpen || b.createdThisMonth - a.createdThisMonth || a.name.localeCompare(b.name))
+    .slice(0, 10);
+  const statusMix = Object.entries(statusCounts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  const completionRate = monthCreated.total ? Math.round((monthCompleted.total / monthCreated.total) * 100) : null;
+  return {
+    mode: 'live', projectKey: MES_PROJECT_KEY, boardTitle: 'MES Support Stats', projectUrl: MES_PROJECT_URL,
+    generatedAt: new Date().toISOString(), openWorkCount: openWork.total, highPriorityOpen, unassignedOpen,
+    monthCreated: monthCreated.total, monthCompleted: monthCompleted.total, completionRate, completedToday: completedToday.total,
+    typeCounts, statusMix, team,
+    windowLabel: 'Asia/Kolkata · MES live workload · monthly metrics from ' + monthStart,
+    warnings: []
+  };
+}
+
 function unavailableDashboard(mode, warning) {
   return {
     mode, generatedAt: new Date().toISOString(), sev1WindowMinutes: 30,
@@ -384,6 +467,16 @@ function unavailableDashboard(mode, warning) {
     monthCreated: { total: null, incidents: null, other: null, periodLabel: 'Current month · created' },
     team: TEAM_NAMES.map((name) => ({ name, assignedOpen: null, pendingIncidents: null, completedOrReviewedToday: null, rcaInProgress: null })),
     openTickets: [], rcaTickets: [], windowLabel: 'Live CVIR data unavailable', warnings: [warning]
+  };
+}
+
+function unavailableMesDashboard(mode, warning) {
+  return {
+    mode, projectKey: MES_PROJECT_KEY, boardTitle: 'MES Support Stats', projectUrl: MES_PROJECT_URL,
+    generatedAt: new Date().toISOString(), openWorkCount: null, highPriorityOpen: null, unassignedOpen: null,
+    monthCreated: null, monthCompleted: null, completionRate: null, completedToday: null,
+    typeCounts: { task: null, issue: null, serviceRequest: null, other: null }, statusMix: [], team: [],
+    windowLabel: 'Live MES data unavailable', warnings: [warning]
   };
 }
 
@@ -399,6 +492,9 @@ export default {
     }
     if (url.pathname === '/app.js') {
       return new Response(__APP_JS__, { headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff' } });
+    }
+    if (url.pathname === '/mes.js') {
+      return new Response(__MES_JS__, { headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff' } });
     }
     if (url.pathname === '/kimbal-logo.png') {
       const binary = atob(__KIMBAL_LOGO_BASE64__);
@@ -419,7 +515,15 @@ export default {
       try { return json(await liveDashboard(env)); }
       catch (error) { return json({ ...unavailableDashboard('error', 'Live Jira refresh failed · figures are hidden'), diagnostic: String(error.message || error) }, 502); }
     }
+    if (url.pathname === '/api/mes-dashboard') {
+      if (!env.JIRA_BASE_URL || !env.JIRA_EMAIL || !env.JIRA_API_TOKEN) return json(unavailableMesDashboard('unconfigured', 'Jira is not connected · live MES figures are hidden'));
+      try { return json(await liveMesDashboard(env)); }
+      catch (error) { return json({ ...unavailableMesDashboard('error', 'Live MES refresh failed · figures are hidden'), diagnostic: String(error.message || error) }, 502); }
+    }
     if (url.pathname === '/health') return json({ ok: true, jiraConfigured: Boolean(env.JIRA_BASE_URL && env.JIRA_EMAIL && env.JIRA_API_TOKEN) });
+    if (url.pathname === '/mes' || url.pathname === '/mes/') {
+      return new Response(__MES_HTML__, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache', 'content-security-policy': "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'", 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff' } });
+    }
     return new Response(__INDEX_HTML__, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache', 'content-security-policy': "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data: https://*.slack-edge.com https://secure.gravatar.com; frame-ancestors 'none'; base-uri 'none'; form-action 'none'", 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff' } });
   }
 };

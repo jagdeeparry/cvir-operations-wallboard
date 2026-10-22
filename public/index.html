@@ -8,7 +8,7 @@
     <title>System Support Stats</title>
     <meta name="description" content="Live five-minute system support incident and team operations wallboard." />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307111c'/%3E%3Cpath d='M14 42V22h8v20zm14 0V14h8v28zm14 0V28h8v14z' fill='%233be4bf'/%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="/styles.css?v=20261003-employee-spotlight" />
+    <link rel="stylesheet" href="/styles.css?v=20261022-mes-rotation" />
   </head>
   <body>
     <main class="shell" aria-live="polite">
@@ -23,6 +23,7 @@
           <img src="/kimbal-logo.png" alt="" aria-hidden="true" />
         </span>
         <div class="status-cluster">
+          <a class="board-switch" id="boardSwitch" href="/mes" aria-label="Open MES Support Stats now"><span>MES next</span><strong id="boardCountdown">30s</strong></a>
           <div class="mode-pill" id="modePill"><span class="status-dot"></span><span id="modeText">Connecting</span></div>
           <div class="clock-block">
             <strong id="clock">--:--</strong>
@@ -136,6 +137,6 @@
         <button class="sev-alert-action" id="sevAlertAcknowledge" type="button">Acknowledge</button>
       </div>
     </div>
-    <script src="/app.js?v=20261003-employee-spotlight"></script>
+    <script src="/app.js?v=20261022-mes-rotation"></script>
   </body>
 </html>

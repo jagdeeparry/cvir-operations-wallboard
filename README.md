@@ -1,4 +1,4 @@
-# System Support Stats Wallboard
+# System Support + MES Stats Wallboard
 
 A read-only, television-first dashboard for the Jira `CVIR` project. It refreshes every five minutes and shows:
 
@@ -10,6 +10,8 @@ A read-only, television-first dashboard for the Jira `CVIR` project. It refreshe
 - open CVIR tickets assigned to those members, excluding `In Review` and `RCA in Progress`;
 - current `RCA in Progress` incidents where a listed team member is the assignee or appears in `L2 Involved`, alternating with the open-ticket queue;
 - manager-maintained resource alignment for SAT, FIIT, FAT, and other ongoing work outside the ticket queue.
+
+The same deployment also includes a purpose-built `/mes` page for Jira project `MES`. The television automatically alternates between System Support Stats and MES Support Stats every 30 seconds. The MES page shows live open work, high-priority and unassigned demand, current-month created/completed throughput, today’s completions, open work by issue type and status, and dynamic workload by MES assignee. Each board still refreshes its Jira data every five minutes, and a board load always requests current data with browser caching disabled.
 
 ## Resource alignment manager
 
@@ -52,6 +54,9 @@ Without the Jira values the dashboard intentionally hides unavailable Jira figur
 - **Monthly MTTR:** Only Incidents that were both created during the current month and completed during the current month qualify. `Done` and `RCA in Progress` are both considered completed. MTTR converts the custom `Time to Resolution` field from seconds to hours; records with a blank or invalid value are excluded. Incidents created by Arun Pandey form the Drishti group; incidents created by every other user form the Operational group. Each group is broken out by `INC Severity` against the 2h/24h/72h targets.
 - **Open ticket queue:** CVIR work assigned to the selected members whose current status is `In Progress`, `in progress (L1)`, `in progress (L2)`, `in progress (L3)`, or `Open`. `In Review` and `RCA in Progress` are excluded. Darshita is pinned to Jira account ID `712020:c8cf55cc-36d0-41a2-936e-be1b0946dadf`; verification uses the supplied JQL with `In Review` removed.
 - **RCA follow-up queue:** Incidents currently in `RCA in Progress` are included when one of the selected team members is either the current Jira assignee or appears in the `L2 Involved` field. A ticket is counted once for every matched team member in Team Movement, even when that person matches through both fields. The main queue alternates between open work and RCA follow-up every 12 seconds; paginated results advance on each return to that view.
+- **MES open work:** `project = MES AND statusCategory != Done`. High-priority open work includes Jira priorities `High` and `Highest`. The MES team table is generated from the current assignees in open work, current-month created work, and tickets completed today rather than using the CVIR roster.
+- **MES monthly throughput:** Current-month created tickets are compared with tickets that were both created and completed during the same current month. Today’s completion count uses the Jira site day boundary. The MES view links to the source Jira project and remains read-only.
+- **Board rotation:** `/` shows System Support Stats and `/mes` shows MES Support Stats. Each page automatically changes to the other after 30 seconds; an active CVIR SEV-1 alert temporarily pauses the transition until its 10-second alarm closes.
 
 ## Local validation
 

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="theme-color" content="#07121c" />
+    <meta name="cvir-api-base" content="" />
+    <title>MES Support Stats</title>
+    <meta name="description" content="Live MES support workload and monthly throughput wallboard." />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307111c'/%3E%3Cpath d='M14 42V22h8v20zm14 0V14h8v28zm14 0V28h8v14z' fill='%23ffbb55'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/styles.css?v=20261022-mes-rotation" />
+  </head>
+  <body class="mes-board">
+    <main class="shell" aria-live="polite">
+      <header class="topbar">
+        <div class="brand">
+          <div>
+            <p class="eyebrow">Manufacturing Execution System</p>
+            <h1>MES Support Stats</h1>
+          </div>
+        </div>
+        <span class="kimbal-mark" id="kimbalRefreshLogo" role="img" aria-label="Kimbal">
+          <img src="/kimbal-logo.png" alt="" aria-hidden="true" />
+        </span>
+        <div class="status-cluster">
+          <a class="board-switch mes-switch" id="boardSwitch" href="/" aria-label="Open System Support Stats now"><span>System next</span><strong id="boardCountdown">30s</strong></a>
+          <div class="mode-pill" id="modePill"><span class="status-dot"></span><span id="modeText">Connecting</span></div>
+          <div class="clock-block"><strong id="clock">--:--</strong><span id="date">Loading date</span></div>
+          <button class="refresh-button" id="refreshButton" type="button" aria-label="Refresh MES dashboard now">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/></svg>
+            <span id="countdown">5:00</span>
+          </button>
+        </div>
+      </header>
+
+      <section class="mes-kpi-grid" aria-label="MES support overview">
+        <article class="card kpi-card kpi-open">
+          <div class="card-label"><span>Open work</span><span class="live-tag">LIVE</span></div>
+          <div class="kpi-row"><strong class="kpi-value" id="openWorkCount">—</strong><span class="kpi-unit">active tickets</span></div>
+          <p class="mes-kpi-note">All MES work not in Done category</p>
+        </article>
+        <article class="card kpi-card mes-priority-card">
+          <div class="card-label"><span>High priority open</span><span>High + Highest</span></div>
+          <div class="kpi-row"><strong class="kpi-value" id="highPriorityOpen">—</strong><span class="kpi-unit">need attention</span></div>
+          <p class="mes-kpi-note"><b id="unassignedOpen">—</b> unassigned open</p>
+        </article>
+        <article class="card kpi-card month-created-card">
+          <div class="card-label"><span>Current-month created</span><span id="monthLabel">Month to date</span></div>
+          <div class="kpi-row"><strong class="kpi-value" id="monthCreated">—</strong><span class="kpi-unit">tickets created</span></div>
+          <p class="mes-kpi-note">New MES demand this month</p>
+        </article>
+        <article class="card kpi-card mes-completed-card">
+          <div class="card-label"><span>Created + completed</span><span>Current month</span></div>
+          <div class="kpi-row"><strong class="kpi-value" id="monthCompleted">—</strong><span class="kpi-unit">completed</span></div>
+          <p class="mes-kpi-note"><b id="completionRate">—</b> completion rate</p>
+        </article>
+        <article class="card kpi-card mes-today-card">
+          <div class="card-label"><span>Completed today</span><span>Asia/Kolkata</span></div>
+          <div class="kpi-row"><strong class="kpi-value" id="completedToday">—</strong><span class="kpi-unit">tickets</span></div>
+          <p class="mes-kpi-note">Resolved since start of day</p>
+        </article>
+      </section>
+
+      <section class="mes-main-grid">
+        <article class="card mes-team-card">
+          <div class="section-heading">
+            <div><p class="eyebrow">Live ownership + today’s movement</p><h2>MES support team</h2></div>
+            <a class="jira-project-link" href="https://sinhaludyog.atlassian.net/jira/core/projects/MES/summary" target="_blank" rel="noopener">Open MES board ↗</a>
+          </div>
+          <div class="mes-team-table" id="mesTeamTable" role="table" aria-label="MES team support workload">
+            <div class="mes-team-header" role="row"><span role="columnheader">Owner</span><span role="columnheader">Assigned open</span><span role="columnheader">High priority</span><span role="columnheader">Created this month</span><span role="columnheader">Done today</span><span role="columnheader">Oldest open</span></div>
+            <div class="loading-lines"><span></span><span></span><span></span><span></span></div>
+          </div>
+        </article>
+
+        <aside class="mes-insight-stack">
+          <article class="card mes-insight-card">
+            <div class="section-heading"><div><p class="eyebrow">Open workload</p><h2>Work mix</h2></div></div>
+            <div class="mes-type-grid">
+              <div><span>Tasks</span><strong id="typeTask">—</strong></div>
+              <div><span>Issues</span><strong id="typeIssue">—</strong></div>
+              <div><span>Service requests</span><strong id="typeServiceRequest">—</strong></div>
+              <div><span>Other</span><strong id="typeOther">—</strong></div>
+            </div>
+          </article>
+          <article class="card mes-insight-card status-card">
+            <div class="section-heading"><div><p class="eyebrow">Active workflow</p><h2>Status mix</h2></div></div>
+            <div class="status-mix" id="statusMix"><div class="empty-state">Loading MES statuses…</div></div>
+          </article>
+        </aside>
+      </section>
+
+      <footer>
+        <div><span class="footer-label">DATA WINDOW</span><span id="dataWindow">Asia/Kolkata · MES live workload</span></div>
+        <div class="footer-center" id="warningText">Read-only dashboard · changes back to System Support Stats every 30 seconds</div>
+        <div><span class="footer-label">LAST SYNC</span><span id="lastSync">Waiting…</span></div>
+      </footer>
+    </main>
+    <div class="toast" id="toast" role="status"></div>
+    <script src="/mes.js?v=20261022-mes-rotation"></script>
+  </body>
+</html>

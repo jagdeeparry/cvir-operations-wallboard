@@ -1,8 +1,8 @@
 const TEAM_NAMES = ['Darshita', 'Heena', 'Yashy', 'Shreya', 'Parveen', 'Anshul', 'Nikhil', 'Rahul Sethi', 'Shiva Sharma'];
 const DEFAULT_TEAM_ACCOUNT_IDS = { Darshita: '712020:c8cf55cc-36d0-41a2-936e-be1b0946dadf' };
-const ACTIVE_ASSIGNED_STATUSES = '("In Progress", "in progress (L1)", "in progress (L3)", Open, "in progress (L2)")';
 const DRISHTI_CREATOR = 'Arun Pandey';
 const TEAM_LOAD_START = '2026-04-15';
+const TEAM_OPEN_LOAD_JQL = 'project = CVIR AND assignee IN (712020:c8cf55cc-36d0-41a2-936e-be1b0946dadf, 712020:64eabf78-325a-478e-8d86-93ee899987a7, qm:ebb954f3-501c-4e7d-9a62-798bedf1a080:3b7e334d-60e6-4fa4-9c33-3d853cce1b55, 712020:36e29f9e-c29c-4652-9fbc-254d693a6f21, 712020:da7d2fbd-7ce6-4be3-a38a-9ca010ec5276, 712020:a369f58a-00ba-4da5-8983-e40342c47b46, 712020:eb2c9ec8-c3b4-4752-806e-2e93e50a7616, 712020:fa7b156c-2072-4aa1-98c1-d0080c875d21, 712020:04346846-d453-46ac-a614-320841e2a229, 712020:60c1bc13-02c9-438a-9f3c-3ed8e6e257a0) AND status IN ("In progress", "in progress (L1)", "in progress (L2)", "in progress (L3)", "In Review", Open, "To Do")';
 const OPEN_OPERATIONAL_INCIDENT_JQL = 'project = CVIR AND issuetype = Incident AND statusCategory != Done AND status NOT IN ("In Review", "RCA in Progress") AND reporter not in (712020:eb8f8736-d102-4d00-9daa-c25a26740a39)';
 const MES_PROJECT_KEY = 'MES';
 const MES_PROJECT_URL = 'https://sinhaludyog.atlassian.net/jira/core/projects/MES/summary';
@@ -320,7 +320,7 @@ async function liveDashboard(env) {
     search(env, base + ' AND status CHANGED TO "In Review" AFTER startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
     search(env, base + ' AND statusCategory = Done AND resolutiondate >= startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
     search(env, base + ' AND issuetype = Incident AND status = "RCA in Progress" AND status CHANGED TO "RCA in Progress" AFTER startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
-    search(env, base + ' AND assignee in (' + accountList + ') AND created >= "' + TEAM_LOAD_START + '" AND status IN ' + ACTIVE_ASSIGNED_STATUSES + ' ORDER BY created DESC', ['issuetype','assignee'], 5000),
+    search(env, TEAM_OPEN_LOAD_JQL, ['issuetype','assignee'], 5000),
     search(env, base + ' AND assignee in (' + accountList + ') AND created >= "' + monthStart + '" ORDER BY created DESC', ['issuetype','assignee'], 5000),
     search(env, base + ' AND issuetype = Incident AND assignee in (' + accountList + ') AND created >= "' + TEAM_LOAD_START + '" AND statusCategory != Done AND status != "RCA in Progress" ORDER BY created DESC', ['assignee'], 5000),
     search(env, base + ' AND issuetype = Incident AND created >= "' + monthStart + '" AND statusCategory = Done AND resolutiondate >= "' + monthStart + '" AND resolutiondate IS NOT EMPTY', mttrFields, 500),
@@ -370,9 +370,9 @@ async function liveDashboard(env) {
     mode: 'live', generatedAt: new Date().toISOString(), sev1WindowMinutes: sevMinutes, openIncidentCount: openIncidents.total,
     openIncidentTrend: [42,48,46,54,51,59,57,64,61,68,65,Math.min(92, 40 + openIncidents.total / 2)], openSev1, recentSev1,
     mttr: { resolvedCount: times.length, periodLabel: monthLabel + ' · created + completed', operational: mttrGroup(operationalEntries), drishti: mttrGroup(drishtiEntries) },
-    teamOpen: { ...countTypes(openTeam.issues), periodLabel: '15 Apr 2026 → now' },
+    teamOpen: { ...countTypes(openTeam.issues), periodLabel: 'Selected statuses · all dates' },
     monthCreated: { ...countTypes(monthCreated.issues), periodLabel: monthLabel + ' · created' },
-    team, openTickets: [], rcaTickets: [], windowLabel: 'Asia/Kolkata · open load from 15 Apr 2026 · monthly metrics from ' + monthStart,
+    team, openTickets: [], rcaTickets: [], windowLabel: 'Asia/Kolkata · team open load across all dates · pending incidents from 15 Apr 2026 · monthly metrics from ' + monthStart,
     warnings: [...(sevField ? [] : ['Jira field INC Severity could not be resolved']), ...(ttrField ? [] : ['Jira field Time to Resolution could not be resolved']), ...(l2InvolvedField ? [] : ['Jira field L2 Involved could not be resolved · RCA matching uses assignee only']), ...(excludedMttr ? [excludedMttr + ' current-month created and completed incidents excluded from monthly MTTR because Time to Resolution is blank or invalid'] : []), ...(unresolved.length ? ['Unresolved Jira member mapping: ' + unresolved.join(', ')] : [])]
   };
 }
@@ -463,7 +463,7 @@ function unavailableDashboard(mode, warning) {
     mode, generatedAt: new Date().toISOString(), sev1WindowMinutes: 30,
     openIncidentCount: null, openIncidentTrend: [], openSev1: [], recentSev1: [],
     mttr: { resolvedCount: null, periodLabel: 'Month to date', operational: { resolvedCount: null, bySeverity: { sev1: { hours: null, target: 2 }, sev2: { hours: null, target: 24 }, sev3: { hours: null, target: 72 } } }, drishti: { resolvedCount: null, bySeverity: { sev1: { hours: null, target: 2 }, sev2: { hours: null, target: 24 }, sev3: { hours: null, target: 72 } } } },
-    teamOpen: { total: null, incidents: null, other: null, periodLabel: '15 Apr 2026 → now' },
+    teamOpen: { total: null, incidents: null, other: null, periodLabel: 'Selected statuses · all dates' },
     monthCreated: { total: null, incidents: null, other: null, periodLabel: 'Current month · created' },
     team: TEAM_NAMES.map((name) => ({ name, assignedOpen: null, pendingIncidents: null, completedOrReviewedToday: null, rcaInProgress: null })),
     openTickets: [], rcaTickets: [], windowLabel: 'Live CVIR data unavailable', warnings: [warning]

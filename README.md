@@ -47,6 +47,7 @@ Without the Jira values the dashboard intentionally hides unavailable Jira figur
 ## Metric definitions
 
 - **Open incidents:** `project = CVIR`, type Incident, status category not Done, excluding `In Review` and `RCA in Progress` because both statuses are treated as operationally closed.
+- **Team open load:** All CVIR tickets, across all creation dates, assigned to the ten configured Jira account IDs and currently in `In progress`, `in progress (L1)`, `in progress (L2)`, `in progress (L3)`, `In Review`, `Open`, or `To Do`. This metric deliberately includes `In Review` and no longer applies the earlier 15 April 2026 creation-date boundary. The Team Movement pending-incident column remains a separate metric beginning 15 April 2026.
 - **Recent SEV-1:** unresolved incidents created during the configured recent window whose `INC Severity` is `Sev-1`. Priority `Highest` is used only if the custom field cannot be found.
 - **New SEV-1 alarm:** a newly seen ticket key triggers a full-screen alert and repeating tone for up to 10 seconds. Acknowledge dismisses it immediately; otherwise it stops and closes automatically after 10 seconds. The last 100 alerted keys are stored only in that browser or TV using local storage, preventing the same incident from ringing again after each five-minute refresh. Browsers that block sound before user interaction still show the visual alert.
 - **In Review:** tickets currently in the exact `In Review` status for each selected assignee.

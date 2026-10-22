@@ -1,8 +1,11 @@
-const TEAM_NAMES = ['Darshita', 'Heena', 'Yashy', 'Shreya', 'Parveen', 'Anshul', 'Nikhil', 'Rahul Sethi', 'Shiva Sharma'];
-const DEFAULT_TEAM_ACCOUNT_IDS = { Darshita: '712020:c8cf55cc-36d0-41a2-936e-be1b0946dadf' };
+const TEAM_NAMES = ['Darshita', 'Heena', 'Yashy', 'Shreya', 'Parveen Kumar Soni', 'Anshul', 'Nikhil', 'Rahul Sethi', 'Shiva Sharma'];
+const DEFAULT_TEAM_ACCOUNT_IDS = {
+  Darshita: '712020:c8cf55cc-36d0-41a2-936e-be1b0946dadf',
+  'Parveen Kumar Soni': '70121:3616f9f1-c8ee-4a49-98c5-edf535a08c45'
+};
 const DRISHTI_CREATOR = 'Arun Pandey';
 const TEAM_LOAD_START = '2026-04-15';
-const TEAM_OPEN_LOAD_JQL = 'project = CVIR AND assignee IN (712020:c8cf55cc-36d0-41a2-936e-be1b0946dadf, 712020:64eabf78-325a-478e-8d86-93ee899987a7, qm:ebb954f3-501c-4e7d-9a62-798bedf1a080:3b7e334d-60e6-4fa4-9c33-3d853cce1b55, 712020:36e29f9e-c29c-4652-9fbc-254d693a6f21, 712020:da7d2fbd-7ce6-4be3-a38a-9ca010ec5276, 712020:a369f58a-00ba-4da5-8983-e40342c47b46, 712020:eb2c9ec8-c3b4-4752-806e-2e93e50a7616, 712020:fa7b156c-2072-4aa1-98c1-d0080c875d21, 712020:04346846-d453-46ac-a614-320841e2a229, 712020:60c1bc13-02c9-438a-9f3c-3ed8e6e257a0) AND status IN ("In progress", "in progress (L1)", "in progress (L2)", "in progress (L3)", "In Review", Open, "To Do")';
+const TEAM_OPEN_LOAD_JQL = 'project = CVIR AND assignee IN (712020:c8cf55cc-36d0-41a2-936e-be1b0946dadf, 712020:64eabf78-325a-478e-8d86-93ee899987a7, 70121:3616f9f1-c8ee-4a49-98c5-edf535a08c45, 712020:36e29f9e-c29c-4652-9fbc-254d693a6f21, 712020:da7d2fbd-7ce6-4be3-a38a-9ca010ec5276, 712020:a369f58a-00ba-4da5-8983-e40342c47b46, 712020:eb2c9ec8-c3b4-4752-806e-2e93e50a7616, 712020:fa7b156c-2072-4aa1-98c1-d0080c875d21, 712020:04346846-d453-46ac-a614-320841e2a229, 712020:60c1bc13-02c9-438a-9f3c-3ed8e6e257a0) AND status IN ("In progress", "in progress (L1)", "in progress (L2)", "in progress (L3)", "In Review", Open, "To Do") AND reporter NOT IN (712020:eb8f8736-d102-4d00-9daa-c25a26740a39)';
 const OPEN_OPERATIONAL_INCIDENT_JQL = 'project = CVIR AND issuetype = Incident AND statusCategory != Done AND status NOT IN ("In Review", "RCA in Progress") AND reporter not in (712020:eb8f8736-d102-4d00-9daa-c25a26740a39)';
 const MES_PROJECT_KEY = 'MES';
 const MES_PROJECT_URL = 'https://sinhaludyog.atlassian.net/jira/core/projects/MES/summary';

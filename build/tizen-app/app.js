@@ -232,7 +232,7 @@
   window.CVIR_UNAVAILABLE_DATA = {
     mode: 'error', generatedAt: new Date().toISOString(), sev1WindowMinutes: 30, openIncidentCount: null,
     openIncidentTrend: [], openSev1: [], recentSev1: [], mttr: { resolvedCount: null, periodLabel: 'Month to date', operational: { resolvedCount: null, bySeverity: { sev1: {hours:null}, sev2: {hours:null}, sev3: {hours:null} } }, drishti: { resolvedCount: null, bySeverity: { sev1: {hours:null}, sev2: {hours:null}, sev3: {hours:null} } } },
-    teamOpen: { total: null, incidents: null, other: null, periodLabel: 'Selected statuses · all dates' }, monthCreated: { total: null, incidents: null, other: null, periodLabel: 'Current month · created' }, team: ['Darshita','Heena','Yashy','Shreya','Parveen','Anshul','Nikhil','Rahul Sethi','Shiva Sharma'].map(function (name) { return {name:name,assignedOpen:null,pendingIncidents:null,completedOrReviewedToday:null,rcaInProgress:null}; }),
+    teamOpen: { total: null, incidents: null, other: null, periodLabel: 'Selected statuses · all dates' }, monthCreated: { total: null, incidents: null, other: null, periodLabel: 'Current month · created' }, team: ['Darshita','Heena','Yashy','Shreya','Parveen Kumar Soni','Anshul','Nikhil','Rahul Sethi','Shiva Sharma'].map(function (name) { return {name:name,assignedOpen:null,pendingIncidents:null,completedOrReviewedToday:null,rcaInProgress:null}; }),
     openTickets: [], rcaTickets: [], windowLabel: 'Live CVIR data unavailable', warnings: ['Dashboard service unavailable · figures are hidden']
   };
   $('sevAlertAcknowledge').addEventListener('click', stopSev1Alarm);

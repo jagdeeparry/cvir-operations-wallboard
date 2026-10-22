@@ -5,7 +5,7 @@ A read-only, television-first dashboard for the Jira `CVIR` project. It refreshe
 - operationally open Incident count, excluding `In Review` and `RCA in Progress`;
 - a blinking red beacon for SEV-1 incidents created within the configured recent window;
 - an audible repeating alarm and full-screen acknowledgement popup for each newly seen SEV-1 ticket;
-- current In Review and closed-today counts for Darshita, Heena, Yashy, Shreya, Parveen, Anshul, Nikhil, and Rahul Sethi;
+- current In Review and closed-today counts for Darshita, Heena, Yashy, Shreya, Parveen Kumar Soni, Anshul, Nikhil, Rahul Sethi, and Shiva Sharma;
 - current-week incident MTTR from Monday in Asia/Kolkata, split into Operational and Drishti groups;
 - open CVIR tickets assigned to those members, excluding `In Review` and `RCA in Progress`;
 - current `RCA in Progress` incidents where a listed team member is the assignee or appears in `L2 Involved`, alternating with the open-ticket queue;
@@ -47,7 +47,7 @@ Without the Jira values the dashboard intentionally hides unavailable Jira figur
 ## Metric definitions
 
 - **Open incidents:** `project = CVIR`, type Incident, status category not Done, excluding `In Review` and `RCA in Progress` because both statuses are treated as operationally closed.
-- **Team open load:** All CVIR tickets, across all creation dates, assigned to the ten configured Jira account IDs and currently in `In progress`, `in progress (L1)`, `in progress (L2)`, `in progress (L3)`, `In Review`, `Open`, or `To Do`. This metric deliberately includes `In Review` and no longer applies the earlier 15 April 2026 creation-date boundary. The Team Movement pending-incident column remains a separate metric beginning 15 April 2026.
+- **Team open load:** All CVIR tickets, across all creation dates, assigned to the ten configured Jira account IDs and currently in `In progress`, `in progress (L1)`, `in progress (L2)`, `in progress (L3)`, `In Review`, `Open`, or `To Do`, excluding tickets reported by Arun Pandey (`712020:eb8f8736-d102-4d00-9daa-c25a26740a39`). Parveen Kumar Soni is pinned to Jira account ID `70121:3616f9f1-c8ee-4a49-98c5-edf535a08c45`. This metric deliberately includes `In Review` and does not apply the earlier 15 April 2026 creation-date boundary. The Team Movement pending-incident column remains a separate metric beginning 15 April 2026.
 - **Recent SEV-1:** unresolved incidents created during the configured recent window whose `INC Severity` is `Sev-1`. Priority `Highest` is used only if the custom field cannot be found.
 - **New SEV-1 alarm:** a newly seen ticket key triggers a full-screen alert and repeating tone for up to 10 seconds. Acknowledge dismisses it immediately; otherwise it stops and closes automatically after 10 seconds. The last 100 alerted keys are stored only in that browser or TV using local storage, preventing the same incident from ringing again after each five-minute refresh. Browsers that block sound before user interaction still show the visual alert.
 - **In Review:** tickets currently in the exact `In Review` status for each selected assignee.

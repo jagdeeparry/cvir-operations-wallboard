@@ -114,9 +114,14 @@ assert.doesNotMatch(html, /id="ticketList"/);
 assert.match(html, /class="kimbal-mark" id="kimbalRefreshLogo"/);
 assert.match(html, /kimbal-logo\.png/);
 assert.doesNotMatch(html, /class="kimbal-logo"/);
+assert.match(html, /data-ad-format="horizontal"/);
+assert.match(mesHtml, /data-ad-format="horizontal"/);
+assert.doesNotMatch(html, /data-ad-format="auto"/);
+assert.doesNotMatch(mesHtml, /data-ad-format="auto"/);
+assert.match(styles, /\.page-ad \{[^}]*width: min\(100%, 970px\);[^}]*margin-inline: auto;/);
 assert.match(styles, /\.kimbal-mark \{[^}]*left: 50%;[^}]*top: 50%/);
 assert.match(styles, /\.kimbal-mark img \{[^}]*height: 74px/);
-assert.match(html, /styles\.css\?v=20261022-mes-rotation/);
+assert.match(html, /styles\.css\?v=20261025-compact-ad/);
 assert.match(html, /app\.js\?v=20261022-mes-rotation/);
 assert.match(html, /id="boardCountdown"/);
 assert.match(html, /href="\/mes"/);
@@ -124,7 +129,7 @@ for (const pageHtml of [html, mesHtml, pagesIndex, pagesMes]) {
   assert.match(pageHtml, /pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js\?client=ca-pub-5244422163373573/);
   assert.match(pageHtml, /data-ad-client="ca-pub-5244422163373573"/);
   assert.match(pageHtml, /data-ad-slot="4926673329"/);
-  assert.match(pageHtml, /data-ad-format="auto"/);
+  assert.match(pageHtml, /data-ad-format="horizontal"/);
   assert.match(pageHtml, /data-full-width-responsive="true"/);
 }
 assert.match(styles, /\.page-ad \{[^}]*min-height: 90px/);

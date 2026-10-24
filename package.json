@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "build:github-pages": "node scripts/build-github-pages.mjs",
     "build:tizen": "node scripts/build-tizen.mjs",
     "check": "node scripts/check.mjs",
     "db:generate": "drizzle-kit generate"

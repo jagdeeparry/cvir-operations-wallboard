@@ -13,6 +13,10 @@ A read-only, television-first dashboard for the Jira `CVIR` project. It refreshe
 
 The same deployment also includes a purpose-built `/mes` page for Jira project `MES`. The television automatically alternates between System Support Stats and MES Support Stats every 30 seconds. The MES page shows live open work, high-priority and unassigned demand, current-month created/completed throughput, today’s completions, open work by issue type and status, and dynamic workload by MES assignee. Each board still refreshes its Jira data every five minutes, and a board load always requests current data with browser caching disabled.
 
+## GitHub Pages mirror
+
+`npm run build:github-pages` generates the public GitHub Pages frontend in `docs/`. It contains only the read-only System and MES television boards and points them at the existing secure Sites backend. Jira credentials, manager access, write operations, and the resource manager page are not copied into the Pages build. The backend exposes its already-public dashboard JSON responses cross-origin; manager operations continue to require the secret access code and CORS preflight is not enabled for write requests.
+
 ## Resource alignment manager
 
 The television dashboard is read-only. Managers update the shared Resource Alignment card from the separate `/manage` page on a laptop. That page is intentionally not linked from the TV dashboard and is not included in the Tizen package.
@@ -61,4 +65,4 @@ Without the Jira values the dashboard intentionally hides unavailable Jira figur
 
 ## Local validation
 
-Run `npm run check` and `npm run build`. The deployable Worker is generated at `dist/server/index.js`.
+Run `npm run build:github-pages`, `npm run check`, and `npm run build`. The deployable Worker is generated at `dist/server/index.js`, and the GitHub Pages frontend is generated at `docs/`.

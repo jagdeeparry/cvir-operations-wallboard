@@ -120,6 +120,14 @@ assert.match(html, /styles\.css\?v=20261022-mes-rotation/);
 assert.match(html, /app\.js\?v=20261022-mes-rotation/);
 assert.match(html, /id="boardCountdown"/);
 assert.match(html, /href="\/mes"/);
+for (const pageHtml of [html, mesHtml, pagesIndex, pagesMes]) {
+  assert.match(pageHtml, /pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js\?client=ca-pub-5244422163373573/);
+  assert.match(pageHtml, /data-ad-client="ca-pub-5244422163373573"/);
+  assert.match(pageHtml, /data-ad-slot="4926673329"/);
+  assert.match(pageHtml, /data-ad-format="auto"/);
+  assert.match(pageHtml, /data-full-width-responsive="true"/);
+}
+assert.match(styles, /\.page-ad \{[^}]*min-height: 90px/);
 assert.match(mesHtml, /MES Support Stats/);
 assert.match(mesHtml, /id="mesTeamTable"/);
 assert.match(mesHtml, /id="statusMix"/);

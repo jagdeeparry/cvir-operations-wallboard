@@ -107,7 +107,7 @@
   }
   function renderTeam(team) {
     function metric(value) { return value == null ? '—' : value; }
-    var header = '<div class="team-header" role="row"><span role="columnheader">Owner</span><span role="columnheader">Assigned open</span><span role="columnheader">Pending incident</span><span role="columnheader">Closed / In Review today</span><span role="columnheader">RCA</span></div>';
+    var header = '<div class="team-header" role="row"><span role="columnheader">Owner</span><span role="columnheader">Assigned open</span><span role="columnheader">Pending incident</span><span role="columnheader">In Review today</span><span role="columnheader">RCA</span></div>';
     $('teamTable').innerHTML = header + team.map(function (member) {
       return '<div class="team-row" role="row"><span class="person" role="cell"><i class="avatar">' + esc(initials(member.name)) + '</i><span class="person-name">' + esc(member.name) + '</span></span><span class="metric-cell open" role="cell">' + metric(member.assignedOpen) + '</span><span class="metric-cell pending" role="cell">' + metric(member.pendingIncidents) + '</span><span class="metric-cell closed" role="cell">' + metric(member.completedOrReviewedToday) + '</span><span class="metric-cell rca" role="cell">' + metric(member.rcaInProgress) + '</span></div>';
     }).join('');

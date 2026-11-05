@@ -316,13 +316,11 @@ async function liveDashboard(env) {
   if (l2InvolvedField) rcaFields.push(l2InvolvedField);
   const mttrFields = ['creator', sevField || 'priority'];
   if (ttrField) mttrFields.push(ttrField);
-  const [openIncidents, openSev1Candidates, recentIncidents, inReviewToday, doneToday, rcaToday, openTeam, monthCreated, pendingTeamIncidents, resolvedMonth, rcaMonth, rcaTeamCandidates] = await Promise.all([
+  const [openIncidents, openSev1Candidates, recentIncidents, inReviewToday, openTeam, monthCreated, pendingTeamIncidents, resolvedMonth, rcaMonth, rcaTeamCandidates] = await Promise.all([
     search(env, OPEN_OPERATIONAL_INCIDENT_JQL, ['key'], 5000),
     search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status != "RCA in Progress" ORDER BY created DESC', ['summary','created', sevField || 'priority'], 5000),
     search(env, base + ' AND issuetype = Incident AND statusCategory != Done AND status != "RCA in Progress" AND created >= -' + sevMinutes + 'm ORDER BY created DESC', ['summary','created', sevField || 'priority'], 100),
-    search(env, base + ' AND status CHANGED TO "In Review" AFTER startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
-    search(env, base + ' AND statusCategory = Done AND resolutiondate >= startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
-    search(env, base + ' AND issuetype = Incident AND status = "RCA in Progress" AND status CHANGED TO "RCA in Progress" AFTER startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
+    search(env, base + ' AND status = "In Review" AND status CHANGED TO "In Review" AFTER startOfDay() AND assignee in (' + accountList + ')', ['assignee'], 500),
     search(env, TEAM_OPEN_LOAD_JQL, ['issuetype','assignee'], 5000),
     search(env, base + ' AND assignee in (' + accountList + ') AND created >= "' + monthStart + '" ORDER BY created DESC', ['issuetype','assignee'], 5000),
     search(env, base + ' AND issuetype = Incident AND assignee in (' + accountList + ') AND created >= "' + TEAM_LOAD_START + '" AND statusCategory != Done AND status != "RCA in Progress" ORDER BY created DESC', ['assignee'], 5000),
@@ -335,7 +333,7 @@ async function liveDashboard(env) {
   const openSev1 = sev1Rows(openSev1Candidates.issues);
   const recentSev1 = sev1Rows(recentIncidents.issues);
   const uniqueIssues = (groups) => [...new Map(groups.flat().map((issue) => [issue.key, issue])).values()];
-  const completedOrReviewedToday = uniqueIssues([doneToday.issues, rcaToday.issues, inReviewToday.issues]);
+  const completedOrReviewedToday = inReviewToday.issues;
   const byAccount = (issues, id) => issues.filter((i) => i.fields.assignee && i.fields.assignee.accountId === id).length;
   const rcaMatchesFor = (issue, user) => {
     const assigneeMatch = issueMatchesUser(issue.fields.assignee, user);

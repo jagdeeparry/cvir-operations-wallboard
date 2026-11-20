@@ -106,10 +106,15 @@
     $(group + 'MttrCount').textContent = value.resolvedCount == null ? '— incidents' : value.resolvedCount + ' incidents';
   }
   function renderTeam(team) {
-    function metric(value) { return value == null ? '—' : value; }
+    function metric(value, url, label, name) {
+      if (value == null) return '—';
+      if (!url || Number(value) <= 0) return esc(value);
+      return '<a class="metric-link" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" title="Open matching tickets in Jira" aria-label="' + esc(label + ' for ' + name + ': ' + value + '. Open matching tickets in Jira') + '">' + esc(value) + '</a>';
+    }
     var header = '<div class="team-header" role="row"><span role="columnheader">Owner</span><span role="columnheader">Assigned open</span><span role="columnheader">Pending incident</span><span role="columnheader">Closed today</span><span role="columnheader">RCA</span></div>';
     $('teamTable').innerHTML = header + team.map(function (member) {
-      return '<div class="team-row" role="row"><span class="person" role="cell"><i class="avatar">' + esc(initials(member.name)) + '</i><span class="person-name">' + esc(member.name) + '</span></span><span class="metric-cell open" role="cell">' + metric(member.assignedOpen) + '</span><span class="metric-cell pending" role="cell">' + metric(member.pendingIncidents) + '</span><span class="metric-cell closed" role="cell">' + metric(member.completedOrReviewedToday) + '</span><span class="metric-cell rca" role="cell">' + metric(member.rcaInProgress) + '</span></div>';
+      var links = member.links || {};
+      return '<div class="team-row" role="row"><span class="person" role="cell"><i class="avatar">' + esc(initials(member.name)) + '</i><span class="person-name">' + esc(member.name) + '</span></span><span class="metric-cell open" role="cell">' + metric(member.assignedOpen, links.assignedOpen, 'Assigned open tickets', member.name) + '</span><span class="metric-cell pending" role="cell">' + metric(member.pendingIncidents, links.pendingIncidents, 'Pending incidents', member.name) + '</span><span class="metric-cell closed" role="cell">' + metric(member.completedOrReviewedToday, links.closedToday, 'Tickets closed today', member.name) + '</span><span class="metric-cell rca" role="cell">' + metric(member.rcaInProgress, links.rcaInProgress, 'RCA follow-up tickets', member.name) + '</span></div>';
     }).join('');
   }
   function renderResourceAlignments() {

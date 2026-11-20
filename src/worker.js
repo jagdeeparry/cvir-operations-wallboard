@@ -9,10 +9,19 @@ const TEAM_OPEN_LOAD_JQL = 'project = CVIR AND assignee IN (712020:c8cf55cc-36d0
 const OPEN_OPERATIONAL_INCIDENT_JQL = 'project = CVIR AND issuetype = Incident AND statusCategory != Done AND status NOT IN ("In Review", "RCA in Progress") AND reporter not in (712020:eb8f8736-d102-4d00-9daa-c25a26740a39)';
 const MES_PROJECT_KEY = 'MES';
 const MES_PROJECT_URL = 'https://sinhaludyog.atlassian.net/jira/core/projects/MES/summary';
+const JIRA_ISSUE_SEARCH_URL = 'https://sinhaludyog.atlassian.net/issues/?jql=';
 const DEFAULT_SEV1_WINDOW = 30;
 const RESOURCE_ACTIVITY_TYPES = ['SAT', 'FIIT', 'FAT', 'Other'];
 let fieldCache = null;
 let userCache = null;
+
+function jqlValue(value) {
+  return '"' + String(value == null ? '' : value).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+}
+
+function jiraIssueSearchUrl(jql) {
+  return JIRA_ISSUE_SEARCH_URL + encodeURIComponent(jql);
+}
 
 function json(value, status = 200) {
   return new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'access-control-allow-origin': '*' } });
@@ -336,20 +345,36 @@ async function liveDashboard(env) {
   const recentSev1 = sev1Rows(recentIncidents.issues);
   const uniqueIssues = (groups) => [...new Map(groups.flat().map((issue) => [issue.key, issue])).values()];
   const completedOrReviewedToday = uniqueIssues([serviceRequestsDoneToday.issues, incidentsRcaToday.issues, issuesInReviewToday.issues]);
-  const byAccount = (issues, id) => issues.filter((i) => i.fields.assignee && i.fields.assignee.accountId === id).length;
+  const issuesByAccount = (issues, id) => issues.filter((i) => i.fields.assignee && i.fields.assignee.accountId === id);
   const rcaMatchesFor = (issue, user) => {
     const assigneeMatch = issueMatchesUser(issue.fields.assignee, user);
     const l2Match = l2InvolvedField ? issueMatchesUser(issue.fields[l2InvolvedField], user) : false;
     return { assigneeMatch, l2Match, matched: assigneeMatch || l2Match };
   };
   const teamRcaIssues = rcaTeamCandidates.issues.filter((issue) => users.some((user) => rcaMatchesFor(issue, user).matched));
-  const team = users.map((u) => ({
-    name: u.name,
-    assignedOpen: u.accountId ? byAccount(openTeam.issues, u.accountId) : 0,
-    pendingIncidents: u.accountId ? byAccount(pendingTeamIncidents.issues, u.accountId) : 0,
-    completedOrReviewedToday: u.accountId ? byAccount(completedOrReviewedToday, u.accountId) : 0,
-    rcaInProgress: teamRcaIssues.filter((issue) => rcaMatchesFor(issue, u).matched).length
-  }));
+  const team = users.map((u) => {
+    if (!u.accountId) return { name: u.name, assignedOpen: 0, pendingIncidents: 0, completedOrReviewedToday: 0, rcaInProgress: 0, links: {} };
+    const account = jqlValue(u.accountId);
+    const assignedOpenIssues = issuesByAccount(openTeam.issues, u.accountId);
+    const pendingIncidentIssues = issuesByAccount(pendingTeamIncidents.issues, u.accountId);
+    const closedTodayIssues = issuesByAccount(completedOrReviewedToday, u.accountId);
+    const rcaIssues = teamRcaIssues.filter((issue) => rcaMatchesFor(issue, u).matched);
+    const closedTodayJql = base + ' AND assignee = ' + account + ' AND ((issuetype = "Service Request" AND statusCategory = Done AND resolutiondate >= startOfDay()) OR (issuetype = Incident AND status = "RCA in Progress" AND status CHANGED TO "RCA in Progress" AFTER startOfDay()) OR (issuetype NOT IN ("Service Request", Incident) AND status = "In Review" AND status CHANGED TO "In Review" AFTER startOfDay())) ORDER BY updated DESC';
+    const rcaOwnerClause = l2InvolvedField ? '(assignee = ' + account + ' OR "L2 Involved" = ' + account + ')' : 'assignee = ' + account;
+    return {
+      name: u.name,
+      assignedOpen: assignedOpenIssues.length,
+      pendingIncidents: pendingIncidentIssues.length,
+      completedOrReviewedToday: closedTodayIssues.length,
+      rcaInProgress: rcaIssues.length,
+      links: {
+        assignedOpen: jiraIssueSearchUrl(TEAM_OPEN_LOAD_JQL + ' AND assignee = ' + account + ' ORDER BY created DESC'),
+        pendingIncidents: jiraIssueSearchUrl(base + ' AND issuetype = Incident AND assignee = ' + account + ' AND created >= "' + TEAM_LOAD_START + '" AND statusCategory != Done AND status != "RCA in Progress" ORDER BY created DESC'),
+        closedToday: jiraIssueSearchUrl(closedTodayJql),
+        rcaInProgress: jiraIssueSearchUrl(base + ' AND issuetype = Incident AND status = "RCA in Progress" AND ' + rcaOwnerClause + ' ORDER BY updated DESC')
+      }
+    };
+  });
   const completedThisMonth = uniqueIssues([resolvedMonth.issues, rcaMonth.issues]);
   const resolutionHours = (issue) => {
     const ttrSeconds = ttrField ? durationSeconds(issue.fields[ttrField]) : null;
@@ -423,14 +448,16 @@ async function liveMesDashboard(env) {
     statusCounts[status] = (statusCounts[status] || 0) + 1;
   });
   const people = new Map();
-  const person = (name) => {
-    if (!people.has(name)) people.set(name, { name, assignedOpen: 0, highPriorityOpen: 0, createdThisMonth: 0, completedToday: 0, oldestOpenDays: null });
-    return people.get(name);
+  const person = (name, accountId) => {
+    if (!people.has(name)) people.set(name, { name, accountId: accountId || '', assignedOpen: 0, highPriorityOpen: 0, createdThisMonth: 0, completedToday: 0, oldestOpenDays: null });
+    const row = people.get(name);
+    if (!row.accountId && accountId) row.accountId = accountId;
+    return row;
   };
   openWork.issues.forEach((issue) => {
     const name = assigneeName(issue);
     if (name === 'Unassigned') return;
-    const row = person(name);
+    const row = person(name, issue.fields.assignee && issue.fields.assignee.accountId);
     row.assignedOpen += 1;
     if (/^(highest|high)$/i.test(fieldValue(issue.fields.priority))) row.highPriorityOpen += 1;
     const age = wholeDaysSince(issue.fields.created);
@@ -438,13 +465,22 @@ async function liveMesDashboard(env) {
   });
   monthCreated.issues.forEach((issue) => {
     const name = assigneeName(issue);
-    if (name !== 'Unassigned') person(name).createdThisMonth += 1;
+    if (name !== 'Unassigned') person(name, issue.fields.assignee && issue.fields.assignee.accountId).createdThisMonth += 1;
   });
   completedToday.issues.forEach((issue) => {
     const name = assigneeName(issue);
-    if (name !== 'Unassigned') person(name).completedToday += 1;
+    if (name !== 'Unassigned') person(name, issue.fields.assignee && issue.fields.assignee.accountId).completedToday += 1;
   });
-  const team = [...people.values()]
+  const team = [...people.values()].map((row) => {
+    const account = row.accountId ? jqlValue(row.accountId) : '';
+    const links = account ? {
+      assignedOpen: jiraIssueSearchUrl(base + ' AND statusCategory != Done AND assignee = ' + account + ' ORDER BY updated DESC'),
+      highPriorityOpen: jiraIssueSearchUrl(base + ' AND statusCategory != Done AND priority IN (Highest, High) AND assignee = ' + account + ' ORDER BY priority DESC, updated DESC'),
+      createdThisMonth: jiraIssueSearchUrl(base + ' AND created >= "' + monthStart + '" AND assignee = ' + account + ' ORDER BY created DESC'),
+      completedToday: jiraIssueSearchUrl(base + ' AND statusCategory = Done AND resolutiondate >= startOfDay() AND assignee = ' + account + ' ORDER BY resolutiondate DESC')
+    } : {};
+    return { name: row.name, assignedOpen: row.assignedOpen, highPriorityOpen: row.highPriorityOpen, createdThisMonth: row.createdThisMonth, completedToday: row.completedToday, oldestOpenDays: row.oldestOpenDays, links };
+  })
     .sort((a, b) => b.assignedOpen - a.assignedOpen || b.createdThisMonth - a.createdThisMonth || a.name.localeCompare(b.name))
     .slice(0, 10);
   const statusMix = Object.entries(statusCounts)

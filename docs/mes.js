@@ -31,6 +31,11 @@
   function metric(value, suffix) {
     return value == null ? '—' : String(value) + (suffix || '');
   }
+  function metricLink(value, url, label, name) {
+    if (value == null) return '—';
+    if (!url || Number(value) <= 0) return esc(value);
+    return '<a class="metric-link" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" title="Open matching tickets in Jira" aria-label="' + esc(label + ' for ' + name + ': ' + value + '. Open matching tickets in Jira') + '">' + esc(value) + '</a>';
+  }
   function renderTeam(team) {
     var header = '<div class="mes-team-header" role="row"><span role="columnheader">Owner</span><span role="columnheader">Assigned open</span><span role="columnheader">High priority</span><span role="columnheader">Created this month</span><span role="columnheader">Done today</span><span role="columnheader">Oldest open</span></div>';
     if (!Array.isArray(team) || !team.length) {
@@ -38,7 +43,8 @@
       return;
     }
     $('mesTeamTable').innerHTML = header + team.map(function (member) {
-      return '<div class="mes-team-row" role="row"><span class="person" role="cell"><i class="avatar">' + esc(initials(member.name)) + '</i><span class="person-name">' + esc(member.name) + '</span></span><span class="metric-cell open" role="cell">' + metric(member.assignedOpen) + '</span><span class="metric-cell pending" role="cell">' + metric(member.highPriorityOpen) + '</span><span class="metric-cell review" role="cell">' + metric(member.createdThisMonth) + '</span><span class="metric-cell closed" role="cell">' + metric(member.completedToday) + '</span><span class="metric-cell mes-age" role="cell">' + (member.oldestOpenDays == null ? '—' : member.oldestOpenDays + 'd') + '</span></div>';
+      var links = member.links || {};
+      return '<div class="mes-team-row" role="row"><span class="person" role="cell"><i class="avatar">' + esc(initials(member.name)) + '</i><span class="person-name">' + esc(member.name) + '</span></span><span class="metric-cell open" role="cell">' + metricLink(member.assignedOpen, links.assignedOpen, 'Assigned open tickets', member.name) + '</span><span class="metric-cell pending" role="cell">' + metricLink(member.highPriorityOpen, links.highPriorityOpen, 'High-priority open tickets', member.name) + '</span><span class="metric-cell review" role="cell">' + metricLink(member.createdThisMonth, links.createdThisMonth, 'Tickets created this month', member.name) + '</span><span class="metric-cell closed" role="cell">' + metricLink(member.completedToday, links.completedToday, 'Tickets completed today', member.name) + '</span><span class="metric-cell mes-age" role="cell">' + (member.oldestOpenDays == null ? '—' : member.oldestOpenDays + 'd') + '</span></div>';
     }).join('');
   }
   function renderStatusMix(items, total) {

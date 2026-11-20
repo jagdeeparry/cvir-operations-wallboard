@@ -9,6 +9,7 @@ A read-only, television-first dashboard for the Jira `CVIR` project. It refreshe
 - current-week incident MTTR from Monday in Asia/Kolkata, split into Operational and Drishti groups;
 - open CVIR tickets assigned to those members, excluding `In Review` and `RCA in Progress`;
 - current `RCA in Progress` incidents where a listed team member is the assignee or appears in `L2 Involved`, alternating with the open-ticket queue;
+- clickable non-zero member counts on both System Support and MES boards, opening the matching Jira issue search in a new tab;
 - manager-maintained resource alignment for SAT, FIIT, FAT, and other ongoing work outside the ticket queue.
 
 The same deployment also includes a purpose-built `/mes` page for Jira project `MES`. The television automatically alternates between System Support Stats and MES Support Stats every 30 seconds. The MES page shows live open work, high-priority and unassigned demand, current-month created/completed throughput, today’s completions, open work by issue type and status, and dynamic workload by MES assignee. Each board still refreshes its Jira data every five minutes, and a board load always requests current data with browser caching disabled.
